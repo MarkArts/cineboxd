@@ -58,6 +58,8 @@ export default function Home() {
   const [selectedCities, setSelectedCities] = useState<string[]>(initialState.selectedCities);
   const [selectedTheaters, setSelectedTheaters] = useState<string[]>(initialState.selectedTheaters);
   const [selectedFilms, setSelectedFilms] = useState<string[]>(initialState.selectedFilms);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('title');
 
   // URL synchronization
   useEffect(() => {
@@ -154,6 +156,16 @@ export default function Home() {
   const filteredShowtimes = useMemo(() => {
     let filtered = showtimes;
     
+    // Apply search query filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(s => 
+        s.film.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.film.directors.some(d => d.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        s.theater.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.theater.address?.city?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
     if (startDate) {
       filtered = filtered.filter(s => s.startDate.split('T')[0] >= startDate);
     }
@@ -171,20 +183,47 @@ export default function Home() {
     }
     
     return filtered;
-  }, [showtimes, startDate, endDate, selectedTheaters, selectedFilms, selectedCities]);
+  }, [showtimes, startDate, endDate, selectedTheaters, selectedFilms, selectedCities, searchQuery]);
 
-  const groupedFilms = filteredShowtimes.reduce((acc, show) => {
-    if (!acc[show.film.slug]) {
-      acc[show.film.slug] = {
-        film: show.film,
-        shows: []
-      };
-    }
-    acc[show.film.slug].shows.push(show);
-    return acc;
-  }, {} as Record<string, { film: Show['film']; shows: Show[] }>);
+  const groupedFilms = useMemo(() => {
+    const films = filteredShowtimes.reduce((acc, show) => {
+      if (!acc[show.film.slug]) {
+        acc[show.film.slug] = {
+          film: show.film,
+          shows: [],
+          showsByDate: new Map()
+        };
+      }
+      acc[show.film.slug].shows.push(show);
+      
+      // Group shows by date
+      const showDate = show.startDate.split('T')[0];
+      if (!acc[show.film.slug].showsByDate.has(showDate)) {
+        acc[show.film.slug].showsByDate.set(showDate, []);
+      }
+      acc[show.film.slug].showsByDate.get(showDate)!.push(show);
+      
+      return acc;
+    }, {} as Record<string, { film: Show['film']; shows: Show[]; showsByDate: Map<string, Show[]> }>);
 
-  const films = Object.values(groupedFilms);
+    // Sort films based on selected criteria
+    return Object.values(films).sort((a, b) => {
+      switch (sortBy) {
+        case 'title':
+          return a.film.title.localeCompare(b.film.title);
+        case 'showtimes':
+          return b.shows.length - a.shows.length;
+        case 'date':
+          const aNextShow = a.shows.sort((x, y) => new Date(x.startDate).getTime() - new Date(y.startDate).getTime())[0];
+          const bNextShow = b.shows.sort((x, y) => new Date(x.startDate).getTime() - new Date(y.startDate).getTime())[0];
+          return new Date(aNextShow.startDate).getTime() - new Date(bNextShow.startDate).getTime();
+        default:
+          return 0;
+      }
+    });
+  }, [filteredShowtimes, sortBy]);
+
+  const films = groupedFilms;
 
   const handleMultiSelect = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (value: string) => {
     setter(prev => prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]);
@@ -193,102 +232,161 @@ export default function Home() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#0f172a',
-      color: '#e2e8f0',
+      backgroundColor: '#0a0f1c',
+      color: '#f1f5f9',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
       <header style={{
-        padding: '1rem',
-        borderBottom: '1px solid #334155',
-        backgroundColor: '#1e293b'
+        padding: '1.25rem',
+        borderBottom: '2px solid #1e293b',
+        backgroundColor: '#0f172a',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
       }}>
         <div style={{
-          maxWidth: '1200px',
+          maxWidth: '1400px',
           margin: '0 auto',
           display: 'flex',
           alignItems: 'center',
-          gap: '1rem',
+          gap: '1.5rem',
           flexWrap: 'wrap'
         }}>
-          <div>
-            <svg width="32" height="32" viewBox="0 0 100 100" fill="none" style={{ flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none" style={{ flexShrink: 0 }}>
               <circle cx="50" cy="50" r="46" stroke="#3b82f6" strokeWidth="4" fill="rgba(59, 130, 246, 0.1)"/>
               <circle cx="35" cy="50" r="8" fill="#3b82f6"/>
               <circle cx="65" cy="50" r="8" fill="#3b82f6"/>
               <path d="M20 30H80" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round"/>
               <path d="M20 70H80" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round"/>
             </svg>
+            <div>
+              <h1 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 'bold', color: '#f8fafc' }}>Cineboxd</h1>
+              <p style={{ margin: 0, fontSize: '1rem', color: '#cbd5e1' }}>Find cinema showtimes for your watchlist</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Cineboxd</h1>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8' }}>Find cinema showtimes for your watchlist</p>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Letterboxd username"
-              style={{
-                padding: '0.5rem',
-                borderRadius: '0.375rem',
-                border: '1px solid #475569',
-                backgroundColor: '#334155',
-                color: '#e2e8f0',
-                fontSize: '0.875rem',
-                width: '200px'
-              }}
-            />
-            <button
-              onClick={fetchShowtimes}
-              disabled={isLoading}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '0.375rem',
-                border: 'none',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                fontSize: '0.875rem',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.6 : 1
-              }}
-            >
-              {isLoading ? 'Loading...' : 'Search'}
-            </button>
+          
+          <div style={{ 
+            marginLeft: 'auto', 
+            display: 'flex', 
+            gap: '0.75rem', 
+            alignItems: 'center', 
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1, minWidth: '300px' }}>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter Letterboxd username"
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: '0.5rem',
+                  border: '2px solid #334155',
+                  backgroundColor: '#1e293b',
+                  color: '#f1f5f9',
+                  fontSize: '1rem',
+                  flex: 1,
+                  minWidth: '200px',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                onBlur={(e) => e.target.style.borderColor = '#334155'}
+              />
+              <button
+                onClick={fetchShowtimes}
+                disabled={isLoading}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  backgroundColor: isLoading ? '#64748b' : '#3b82f6',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  boxShadow: isLoading ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.3)',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseOver={(e) => {
+                  if (!isLoading) e.currentTarget.style.backgroundColor = '#2563eb';
+                }}
+                onMouseOut={(e) => {
+                  if (!isLoading) e.currentTarget.style.backgroundColor = '#3b82f6';
+                }}
+              >
+                {isLoading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid #ffffff30',
+                      borderTop: '2px solid #ffffff',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }}></div>
+                    Loading...
+                  </div>
+                ) : 'Search'}
+              </button>
+            </div>
+            
             <button
               onClick={() => setShowFilters(!showFilters)}
               style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '0.375rem',
-                border: '1px solid #475569',
-                backgroundColor: showFilters ? '#3b82f6' : '#334155',
-                color: 'white',
-                fontSize: '0.875rem',
+                padding: '0.75rem 1.25rem',
+                borderRadius: '0.5rem',
+                border: `2px solid ${showFilters ? '#3b82f6' : '#334155'}`,
+                backgroundColor: showFilters ? '#3b82f6' : '#1e293b',
+                color: showFilters ? 'white' : '#cbd5e1',
+                fontSize: '1rem',
+                fontWeight: '600',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem'
+                gap: '0.5rem',
+                transition: 'all 0.2s',
+                boxShadow: showFilters ? '0 2px 4px rgba(59, 130, 246, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
+                position: 'relative'
+              }}
+              onMouseOver={(e) => {
+                if (!showFilters) {
+                  e.currentTarget.style.borderColor = '#475569';
+                  e.currentTarget.style.backgroundColor = '#334155';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!showFilters) {
+                  e.currentTarget.style.borderColor = '#334155';
+                  e.currentTarget.style.backgroundColor = '#1e293b';
+                }
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"/>
               </svg>
               Filters
               {(selectedCities.length + selectedTheaters.length + selectedFilms.length + (startDate ? 1 : 0) + (endDate ? 1 : 0)) > 0 && (
-                <span style={{
+                <div style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
                   backgroundColor: '#ef4444',
                   color: 'white',
                   borderRadius: '50%',
-                  width: '18px',
-                  height: '18px',
+                  width: '24px',
+                  height: '24px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold'
+                  fontSize: '0.875rem',
+                  fontWeight: 'bold',
+                  border: '2px solid #0f172a',
+                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
                 }}>
                   {selectedCities.length + selectedTheaters.length + selectedFilms.length + (startDate ? 1 : 0) + (endDate ? 1 : 0)}
-                </span>
+                </div>
               )}
             </button>
           </div>
@@ -537,237 +635,467 @@ export default function Home() {
       </header>
 
       <main style={{
-        maxWidth: '1200px',
+        maxWidth: '1400px',
         margin: '0 auto',
-        padding: '2rem 1rem'
+        padding: '2rem 1.25rem'
       }}>
         {isLoading && (
           <div style={{
             textAlign: 'center',
-            padding: '4rem 0',
-            color: '#94a3b8'
+            padding: '6rem 0',
+            backgroundColor: '#1e293b',
+            borderRadius: '1rem',
+            border: '2px solid #334155'
           }}>
-            Loading watchlist...
+            <div style={{
+              width: '64px',
+              height: '64px',
+              border: '4px solid #334155',
+              borderTop: '4px solid #3b82f6',
+              borderRadius: '50%',
+              margin: '0 auto 2rem',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f1f5f9', marginBottom: '0.5rem' }}>
+              Loading your watchlist...
+            </h2>
+            <p style={{ fontSize: '1rem', color: '#cbd5e1' }}>
+              Fetching movies and showtimes from Dutch cinemas
+            </p>
           </div>
         )}
 
         {error && (
           <div style={{
             textAlign: 'center',
-            padding: '4rem 0',
-            color: '#ef4444'
+            padding: '4rem 2rem',
+            backgroundColor: '#7f1d1d',
+            borderRadius: '1rem',
+            border: '2px solid #b91c1c'
           }}>
-            {error}
+            <div style={{
+              width: '64px',
+              height: '64px',
+              backgroundColor: '#dc2626',
+              borderRadius: '50%',
+              margin: '0 auto 2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4"/>
+                <path d="M12 16h.01"/>
+              </svg>
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fef2f2', marginBottom: '0.5rem' }}>
+              Something went wrong
+            </h2>
+            <p style={{ fontSize: '1rem', color: '#fecaca', marginBottom: '1.5rem' }}>
+              {error}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Try Again
+            </button>
           </div>
         )}
 
         {!isLoading && !error && films.length === 0 && (
           <div style={{
             textAlign: 'center',
-            padding: '4rem 0',
-            color: '#94a3b8'
+            padding: '4rem 2rem',
+            backgroundColor: '#1e293b',
+            borderRadius: '1rem',
+            border: '2px solid #334155'
           }}>
-            No movies found. Check your username or try a different user.
+            <div style={{
+              width: '64px',
+              height: '64px',
+              backgroundColor: '#334155',
+              borderRadius: '50%',
+              margin: '0 auto 2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                <circle cx="9" cy="9" r="2"/>
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-1.414-.586H14l-3-3 2.5-2.5L18 9.5l3 3v2.5z"/>
+              </svg>
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f1f5f9', marginBottom: '0.5rem' }}>
+              No movies found
+            </h2>
+            <p style={{ fontSize: '1rem', color: '#cbd5e1' }}>
+              {searchQuery ? 'Try adjusting your search terms or filters.' : 'Check your username or try a different Letterboxd user.'}
+            </p>
           </div>
         )}
 
         {!isLoading && !error && films.length > 0 && (
           <div>
-            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
-              {films.length} {films.length === 1 ? 'movie' : 'movies'} found
-            </h2>
+            {/* Search and Sort Controls */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '2rem',
+              gap: '1rem',
+              flexWrap: 'wrap',
+              padding: '1.5rem',
+              backgroundColor: '#1e293b',
+              borderRadius: '1rem',
+              border: '2px solid #334155'
+            }}>
+              <div>
+                <h2 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '0.25rem' }}>
+                  {films.length} {films.length === 1 ? 'movie' : 'movies'} found
+                </h2>
+                <p style={{ fontSize: '1rem', color: '#cbd5e1', margin: 0 }}>
+                  {filteredShowtimes.length} total showtimes available
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* Search */}
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search movies, directors, theaters..."
+                    style={{
+                      padding: '0.75rem 1rem 0.75rem 2.5rem',
+                      borderRadius: '0.5rem',
+                      border: '2px solid #334155',
+                      backgroundColor: '#0f172a',
+                      color: '#f1f5f9',
+                      fontSize: '1rem',
+                      width: '300px',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                    onBlur={(e) => e.target.style.borderColor = '#334155'}
+                  />
+                  <svg 
+                    width="20" 
+                    height="20" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="#94a3b8" 
+                    strokeWidth="2"
+                    style={{
+                      position: 'absolute',
+                      left: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)'
+                    }}
+                  >
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                  </svg>
+                </div>
+                
+                {/* Sort */}
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.5rem',
+                    border: '2px solid #334155',
+                    backgroundColor: '#0f172a',
+                    color: '#f1f5f9',
+                    fontSize: '1rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="title">Sort by Title</option>
+                  <option value="date">Sort by Next Showtime</option>
+                  <option value="showtimes">Sort by Most Showtimes</option>
+                </select>
+              </div>
+            </div>
             
             <div style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.5rem',
+              gap: '2rem',
               maxWidth: '100%'
             }}>
-              {films.map(({ film, shows }) => (
-                <div
-                  key={film.slug}
-                  style={{
-                    backgroundColor: '#1e293b',
-                    borderRadius: '0.75rem',
-                    border: '1px solid #334155',
-                    overflow: 'hidden',
-                    height: '300px',
-                    display: 'flex'
-                  }}
-                >
-                  {/* Full height poster */}
-                  <div style={{
-                    width: '200px',
-                    height: '100%',
-                    flexShrink: 0,
-                    backgroundColor: '#334155',
-                    overflow: 'hidden'
-                  }}>
-                    {film.poster?.url ? (
-                      <img
-                        src={film.poster.url}
-                        alt={`${film.title} poster`}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement.innerHTML = `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #64748b; font-weight: bold;">${film.title.substring(0, 3).toUpperCase()}</div>`;
-                        }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.5rem',
-                        color: '#64748b',
-                        fontWeight: 'bold'
-                      }}>
-                        {film.title.substring(0, 3).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Movie content */}
-                  <div style={{
-                    flex: '1',
-                    padding: '1.5rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minWidth: 0
-                  }}>
-                    <div style={{ marginBottom: '1rem' }}>
-                      <h3 style={{
-                        margin: '0 0 0.75rem 0',
-                        fontSize: '1.5rem',
-                        fontWeight: 'bold',
-                        lineHeight: '1.2',
-                        color: '#e2e8f0'
-                      }}>
-                        {film.title}
-                      </h3>
-                      
-                      <div style={{
-                        fontSize: '1rem',
-                        color: '#94a3b8',
-                        marginBottom: '0.5rem'
-                      }}>
-                        {film.directors.join(', ')}
-                        {film.duration && ` • ${formatDuration(film.duration)}`}
-                      </div>
-                      
-                      <div style={{
-                        fontSize: '0.875rem',
-                        color: '#64748b'
-                      }}>
-                        {shows.length} showtime{shows.length !== 1 ? 's' : ''} available
-                      </div>
-                    </div>
-                    
-                    {/* Showtimes grid */}
+              {films.map(({ film, shows, showsByDate }) => {
+                const sortedDates = Array.from(showsByDate.keys()).sort();
+                return (
+                  <article
+                    key={film.slug}
+                    style={{
+                      backgroundColor: '#1e293b',
+                      borderRadius: '1rem',
+                      border: '2px solid #334155',
+                      overflow: 'hidden',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    role="article"
+                    aria-labelledby={`movie-${film.slug}`}
+                  >
+                    {/* Movie Header */}
                     <div style={{
-                      flex: '1',
-                      overflow: 'auto',
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                      gap: '0.75rem',
-                      alignContent: 'start'
+                      display: 'flex',
+                      gap: '2rem',
+                      padding: '2rem',
+                      borderBottom: '2px solid #334155'
                     }}>
-                      {shows.slice(0, 8).map(show => (
-                        <div key={show.id} style={{
-                          padding: '0.75rem',
-                          backgroundColor: '#334155',
-                          borderRadius: '0.5rem',
-                          border: '1px solid #475569',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          gap: '0.75rem'
-                        }}>
+                      {/* Poster */}
+                      <div style={{
+                        width: '140px',
+                        height: '210px',
+                        flexShrink: 0,
+                        backgroundColor: '#334155',
+                        borderRadius: '0.75rem',
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                      }}>
+                        {film.poster?.url ? (
+                          <img
+                            src={film.poster.url}
+                            alt={`${film.title} movie poster`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              if (e.currentTarget.parentElement) {
+                                e.currentTarget.parentElement.innerHTML = `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #94a3b8; font-weight: bold; text-align: center; padding: 1rem;">${film.title.substring(0, 10).toUpperCase()}</div>`;
+                              }
+                            }}
+                          />
+                        ) : (
                           <div style={{
-                            flex: '1',
-                            minWidth: 0
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem',
+                            color: '#94a3b8',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            padding: '1rem'
                           }}>
-                            <div style={{ 
-                              fontSize: '0.875rem',
-                              fontWeight: '500',
-                              color: '#e2e8f0',
-                              marginBottom: '0.25rem',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {show.theater.name}
-                            </div>
-                            {show.theater.address?.city && (
-                              <div style={{ 
-                                fontSize: '0.75rem',
-                                color: '#94a3b8'
-                              }}>
-                                {show.theater.address.city}
-                              </div>
-                            )}
+                            {film.title.substring(0, 10).toUpperCase()}
                           </div>
-                          {show.ticketingUrl ? (
-                            <a
-                              href={show.ticketingUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                padding: '0.5rem 1rem',
-                                backgroundColor: '#3b82f6',
-                                color: 'white',
-                                textDecoration: 'none',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.875rem',
-                                fontWeight: '500',
-                                flexShrink: 0,
-                                transition: 'background-color 0.2s'
-                              }}
-                              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-                              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
-                            >
-                              {formatTime(show.startDate)}
-                            </a>
-                          ) : (
-                            <span style={{
-                              padding: '0.5rem 1rem',
-                              backgroundColor: '#374151',
-                              color: '#9ca3af',
-                              borderRadius: '0.375rem',
-                              fontSize: '0.875rem',
-                              flexShrink: 0
-                            }}>
-                              {formatTime(show.startDate)}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                      {shows.length > 8 && (
+                        )}
+                      </div>
+                      
+                      {/* Movie Info */}
+                      <div style={{ flex: '1', minWidth: 0 }}>
+                        <h3 
+                          id={`movie-${film.slug}`}
+                          style={{
+                            margin: '0 0 1rem 0',
+                            fontSize: '2rem',
+                            fontWeight: 'bold',
+                            lineHeight: '1.1',
+                            color: '#f8fafc'
+                          }}
+                        >
+                          {film.title}
+                        </h3>
+                        
                         <div style={{
-                          padding: '0.75rem',
-                          backgroundColor: '#374151',
-                          borderRadius: '0.5rem',
-                          border: '1px solid #475569',
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.875rem',
-                          color: '#94a3b8',
-                          fontStyle: 'italic'
+                          flexWrap: 'wrap',
+                          gap: '1.5rem',
+                          marginBottom: '1rem'
                         }}>
-                          +{shows.length - 8} more showtimes
+                          {film.directors.length > 0 && (
+                            <div>
+                              <div style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Director</div>
+                              <div style={{ fontSize: '1.125rem', color: '#f1f5f9', fontWeight: '500' }}>
+                                {film.directors.join(', ')}
+                              </div>
+                            </div>
+                          )}
+                          {film.duration && (
+                            <div>
+                              <div style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Runtime</div>
+                              <div style={{ fontSize: '1.125rem', color: '#f1f5f9', fontWeight: '500' }}>
+                                {formatDuration(film.duration)}
+                              </div>
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Showtimes</div>
+                            <div style={{ fontSize: '1.125rem', color: '#f1f5f9', fontWeight: '500' }}>
+                              {shows.length} available
+                            </div>
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+
+                    {/* Showtimes by Date */}
+                    <div style={{ padding: '2rem' }}>
+                      {sortedDates.map((date, dateIndex) => {
+                        const dateShows = showsByDate.get(date) || [];
+                        const theaters = dateShows.reduce((acc, show) => {
+                          const theaterName = show.theater.name;
+                          if (!acc[theaterName]) {
+                            acc[theaterName] = {
+                              theater: show.theater,
+                              shows: []
+                            };
+                          }
+                          acc[theaterName].shows.push(show);
+                          return acc;
+                        }, {} as Record<string, { theater: Show['theater']; shows: Show[] }>);
+
+                        return (
+                          <div 
+                            key={date} 
+                            style={{ 
+                              marginBottom: dateIndex < sortedDates.length - 1 ? '2rem' : 0 
+                            }}
+                          >
+                            <h4 style={{
+                              fontSize: '1.25rem',
+                              fontWeight: 'bold',
+                              color: '#f8fafc',
+                              marginBottom: '1rem',
+                              padding: '0.75rem 1rem',
+                              backgroundColor: '#334155',
+                              borderRadius: '0.5rem',
+                              border: '1px solid #475569'
+                            }}>
+                              {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })}
+                            </h4>
+                            
+                            <div style={{
+                              display: 'grid',
+                              gap: '1rem',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))'
+                            }}>
+                              {Object.values(theaters).map(({ theater, shows: theaterShows }) => (
+                                <div
+                                  key={theater.name}
+                                  style={{
+                                    backgroundColor: '#334155',
+                                    borderRadius: '0.75rem',
+                                    border: '1px solid #475569',
+                                    padding: '1.25rem'
+                                  }}
+                                >
+                                  <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    marginBottom: '1rem'
+                                  }}>
+                                    <div>
+                                      <h5 style={{
+                                        fontSize: '1.125rem',
+                                        fontWeight: '600',
+                                        color: '#f1f5f9',
+                                        margin: '0 0 0.25rem 0'
+                                      }}>
+                                        {theater.name}
+                                      </h5>
+                                      {theater.address?.city && (
+                                        <p style={{
+                                          fontSize: '1rem',
+                                          color: '#cbd5e1',
+                                          margin: 0
+                                        }}>
+                                          {theater.address.city}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div style={{
+                                      backgroundColor: '#1e293b',
+                                      padding: '0.5rem 0.75rem',
+                                      borderRadius: '0.375rem',
+                                      fontSize: '0.875rem',
+                                      color: '#94a3b8'
+                                    }}>
+                                      {theaterShows.length} show{theaterShows.length !== 1 ? 's' : ''}
+                                    </div>
+                                  </div>
+                                  
+                                  <div style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '0.75rem'
+                                  }}>
+                                    {theaterShows
+                                      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                                      .map(show => (
+                                        <a
+                                          key={show.id}
+                                          href={show.ticketingUrl || '#'}
+                                          target={show.ticketingUrl ? "_blank" : "_self"}
+                                          rel={show.ticketingUrl ? "noopener noreferrer" : undefined}
+                                          style={{
+                                            padding: '0.75rem 1.25rem',
+                                            backgroundColor: show.ticketingUrl ? '#3b82f6' : '#6b7280',
+                                            color: 'white',
+                                            textDecoration: 'none',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '1rem',
+                                            fontWeight: '600',
+                                            cursor: show.ticketingUrl ? 'pointer' : 'default',
+                                            boxShadow: show.ticketingUrl ? '0 2px 4px rgba(59, 130, 246, 0.3)' : 'none',
+                                            transition: 'all 0.2s',
+                                            border: 'none',
+                                            outline: 'none'
+                                          }}
+                                          onMouseOver={(e) => {
+                                            if (show.ticketingUrl) {
+                                              e.currentTarget.style.backgroundColor = '#2563eb';
+                                              e.currentTarget.style.transform = 'translateY(-1px)';
+                                            }
+                                          }}
+                                          onMouseOut={(e) => {
+                                            if (show.ticketingUrl) {
+                                              e.currentTarget.style.backgroundColor = '#3b82f6';
+                                              e.currentTarget.style.transform = 'translateY(0)';
+                                            }
+                                          }}
+                                        >
+                                          {formatTime(show.startDate)}
+                                        </a>
+                                      ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </div>
         )}
