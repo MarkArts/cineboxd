@@ -2,6 +2,80 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { IS_BROWSER } from "$fresh/runtime.ts";
 import MovieCard from "./MovieCard.tsx";
 
+// Witty loading messages
+const LOADING_MESSAGES = [
+  "Rewinding the tapes...",
+  "Buttering the popcorn...",
+  "Finding the best seats...",
+  "Checking what's playing...",
+  "Rolling the film reels...",
+  "Dimming the lights...",
+  "Shushing the audience...",
+  "Dodging spoilers...",
+  "Consulting the critics...",
+  "Scanning the marquee...",
+  "Adjusting the projector...",
+  "Queueing the trailers...",
+];
+
+// Film reel spinner component
+function FilmReelSpinner() {
+  return (
+    <div
+      style={{
+        width: "80px",
+        height: "80px",
+        position: "relative",
+        margin: "0 auto",
+      }}
+    >
+      {/* Outer reel */}
+      <div
+        class="film-reel-spin"
+        style={{
+          width: "80px",
+          height: "80px",
+          borderRadius: "50%",
+          border: "4px solid #3b82f6",
+          position: "absolute",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Sprocket holes */}
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
+          <div
+            key={angle}
+            style={{
+              position: "absolute",
+              width: "12px",
+              height: "12px",
+              backgroundColor: "#3b82f6",
+              borderRadius: "50%",
+              top: "50%",
+              left: "50%",
+              transform: `rotate(${angle}deg) translateY(-30px) translateX(-6px)`,
+            }}
+          />
+        ))}
+        {/* Center hole */}
+        <div
+          style={{
+            position: "absolute",
+            width: "20px",
+            height: "20px",
+            backgroundColor: "#0f1419",
+            border: "3px solid #3b82f6",
+            borderRadius: "50%",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 interface Show {
   id: string;
   startDate: string;
@@ -44,6 +118,7 @@ export default function MovieList({ listPath }: MovieListProps) {
   const [showtimes, setShowtimes] = useState<Show[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -53,6 +128,17 @@ export default function MovieList({ listPath }: MovieListProps) {
   const [showCityFilter, setShowCityFilter] = useState(false);
   const [showMovieFilter, setShowMovieFilter] = useState(false);
   const [showTheaterFilter, setShowTheaterFilter] = useState(false);
+
+  // Cycle through loading messages
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const interval = setInterval(() => {
+      setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   // Initialize from URL params on mount (client-side only)
   useEffect(() => {
@@ -733,11 +819,21 @@ export default function MovieList({ listPath }: MovieListProps) {
           <div
             style={{
               textAlign: "center",
-              padding: "40px",
+              padding: "80px 40px",
               color: "#71767b",
             }}
           >
-            Loading showtimes...
+            <FilmReelSpinner />
+            <p
+              style={{
+                marginTop: "24px",
+                fontSize: "1.1rem",
+                color: "#9ca3af",
+                minHeight: "1.5em",
+              }}
+            >
+              {LOADING_MESSAGES[loadingMessageIndex]}
+            </p>
           </div>
         )}
 

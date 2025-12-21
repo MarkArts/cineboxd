@@ -119,6 +119,16 @@ export default function App({ Component }: PageProps) {
             left: 40%;
             animation: float 14s ease-in-out infinite 2.5s;
           }
+
+          /* Film reel spinner */
+          @keyframes film-reel-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          .film-reel-spin {
+            animation: film-reel-spin 2s linear infinite;
+          }
+
           @media (max-width: 768px) {
             .header-controls {
               flex-direction: column !important;
