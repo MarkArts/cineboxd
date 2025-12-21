@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# Node.js (for screenshot tool - conflicts with Deno Fresh build)
+package.json
+package-lock.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*
