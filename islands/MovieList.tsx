@@ -426,7 +426,7 @@ export default function MovieList({ listPath }: MovieListProps) {
     setShowShareModal(true);
     setLinkCopied(false);
 
-    if (shortLink) return; // Already have a link
+    if (shortLink || isGeneratingLink) return;
 
     setIsGeneratingLink(true);
     try {
@@ -437,10 +437,9 @@ export default function MovieList({ listPath }: MovieListProps) {
         body: JSON.stringify({ url: currentPath }),
       });
 
-      if (response.ok) {
-        const { code } = await response.json();
-        const baseUrl = globalThis.location.origin;
-        setShortLink(`${baseUrl}/s/${code}`);
+      const data = await response.json();
+      if (response.ok && data.code) {
+        setShortLink(`${globalThis.location.origin}/s/${data.code}`);
       }
     } catch (error) {
       console.error("Failed to generate short link:", error);
