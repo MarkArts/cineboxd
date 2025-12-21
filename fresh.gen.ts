@@ -5,7 +5,9 @@
 import * as $_path_ from "./routes/[...path].tsx";
 import * as $_app from "./routes/_app.tsx";
 import * as $api_cineboxd from "./routes/api/cineboxd.ts";
+import * as $api_shortlink from "./routes/api/shortlink.ts";
 import * as $index from "./routes/index.tsx";
+import * as $s_code_ from "./routes/s/[code].tsx";
 import * as $HomePage from "./islands/HomePage.tsx";
 import * as $MovieCard from "./islands/MovieCard.tsx";
 import * as $MovieList from "./islands/MovieList.tsx";
@@ -16,7 +18,9 @@ const manifest = {
     "./routes/[...path].tsx": $_path_,
     "./routes/_app.tsx": $_app,
     "./routes/api/cineboxd.ts": $api_cineboxd,
+    "./routes/api/shortlink.ts": $api_shortlink,
     "./routes/index.tsx": $index,
+    "./routes/s/[code].tsx": $s_code_,
   },
   islands: {
     "./islands/HomePage.tsx": $HomePage,

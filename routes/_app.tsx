@@ -9,8 +9,31 @@ export default function App({ Component }: PageProps) {
         <title>Cineboxd</title>
         <meta
           name="description"
-          content="Find showtimes for movies on your Letterboxd watchlist"
+          content="Find showtimes for movies on your Letterboxd watchlist in Dutch cinemas"
         />
+
+        {/* Open Graph / Social Media */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Cineboxd" />
+        <meta
+          property="og:description"
+          content="Find showtimes for movies on your Letterboxd watchlist in Dutch cinemas"
+        />
+        <meta property="og:image" content="/og-image.png" />
+        <meta property="og:site_name" content="Cineboxd" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Cineboxd" />
+        <meta
+          name="twitter:description"
+          content="Find showtimes for movies on your Letterboxd watchlist in Dutch cinemas"
+        />
+        <meta name="twitter:image" content="/og-image.png" />
+
+        {/* Theme Color */}
+        <meta name="theme-color" content="#0f1419" />
+
         <style>
           {`
           * {

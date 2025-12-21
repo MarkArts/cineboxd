@@ -129,6 +129,10 @@ export default function MovieList({ listPath }: MovieListProps) {
   const [showCityFilter, setShowCityFilter] = useState(false);
   const [showMovieFilter, setShowMovieFilter] = useState(false);
   const [showTheaterFilter, setShowTheaterFilter] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shortLink, setShortLink] = useState<string | null>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Cycle through loading messages
   useEffect(() => {
@@ -418,8 +422,161 @@ export default function MovieList({ listPath }: MovieListProps) {
     }
   };
 
+  const handleShare = async () => {
+    setShowShareModal(true);
+    setLinkCopied(false);
+
+    if (shortLink) return; // Already have a link
+
+    setIsGeneratingLink(true);
+    try {
+      const currentPath = globalThis.location.pathname + globalThis.location.search;
+      const response = await fetch("/api/shortlink", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: currentPath }),
+      });
+
+      if (response.ok) {
+        const { code } = await response.json();
+        const baseUrl = globalThis.location.origin;
+        setShortLink(`${baseUrl}/s/${code}`);
+      }
+    } catch (error) {
+      console.error("Failed to generate short link:", error);
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const copyToClipboard = async () => {
+    if (!shortLink) return;
+    try {
+      await navigator.clipboard.writeText(shortLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const input = document.createElement("input");
+      input.value = shortLink;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  };
+
   return (
     <div style={{ minHeight: "100vh" }}>
+      {/* Share Modal */}
+      {showShareModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowShareModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "#1e293b",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "400px",
+              width: "90%",
+              border: "1px solid #2f3336",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              style={{
+                margin: "0 0 16px 0",
+                color: "#e1e8ed",
+                fontSize: "18px",
+              }}
+            >
+              Share this list
+            </h3>
+
+            {isGeneratingLink ? (
+              <p style={{ color: "#71767b" }}>Generating link...</p>
+            ) : shortLink ? (
+              <div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={shortLink}
+                    readOnly
+                    style={{
+                      flex: 1,
+                      padding: "10px 12px",
+                      backgroundColor: "#0f1419",
+                      border: "1px solid #2f3336",
+                      borderRadius: "6px",
+                      color: "#e1e8ed",
+                      fontSize: "14px",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={copyToClipboard}
+                    style={{
+                      padding: "10px 16px",
+                      backgroundColor: linkCopied ? "#10b981" : "#3b82f6",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {linkCopied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <p style={{ color: "#71767b", fontSize: "13px", margin: 0 }}>
+                  Share this link to show others what's playing from this list.
+                </p>
+              </div>
+            ) : (
+              <p style={{ color: "#f4212e" }}>Failed to generate link</p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowShareModal(false)}
+              style={{
+                marginTop: "16px",
+                padding: "8px 16px",
+                backgroundColor: "transparent",
+                color: "#71767b",
+                border: "1px solid #2f3336",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+                width: "100%",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header
         style={{
@@ -457,6 +614,41 @@ export default function MovieList({ listPath }: MovieListProps) {
             <span style={{ color: "#e1e8ed", fontSize: "14px" }}>
               {formatListName(listPath)}
             </span>
+            <button
+              type="button"
+              onClick={handleShare}
+              style={{
+                marginLeft: "8px",
+                padding: "6px 12px",
+                backgroundColor: "transparent",
+                border: "1px solid #2f3336",
+                borderRadius: "6px",
+                color: "#71767b",
+                fontSize: "13px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              Share
+            </button>
           </div>
 
           <div
