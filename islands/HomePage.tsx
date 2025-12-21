@@ -47,8 +47,15 @@ function getNextMonthRange(): string {
   }`;
 }
 
-// Example lists to showcase
+// Example lists to showcase - Mark's watchlist first (pyramid top)
 const EXAMPLE_LISTS = [
+  {
+    title: "Mark's Watchlist",
+    subtitle: "All upcoming showtimes",
+    path: "105424/watchlist",
+    emoji: "🎯",
+    getFilters: () => "", // No time filter
+  },
   {
     title: "Sight & Sound 2025",
     subtitle: "This week",
@@ -76,13 +83,6 @@ const EXAMPLE_LISTS = [
     path: "benvsthemovies/list/the-criterion-challenge-2026",
     emoji: "🎬",
     getFilters: getNextMonthRange,
-  },
-  {
-    title: "Creator's Watchlist",
-    subtitle: "What I want to see",
-    path: "105424/watchlist",
-    emoji: "👨‍💻",
-    getFilters: getNextWeekRange,
   },
   {
     title: "Movies Everyone Should Watch",
@@ -306,6 +306,84 @@ export default function HomePage() {
             Or try a popular list
           </p>
 
+          {/* Pyramid top - Mark's Watchlist */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: "12px",
+              maxWidth: "500px",
+              margin: "0 auto 12px auto",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => navigateToExample(
+                EXAMPLE_LISTS[0].path,
+                EXAMPLE_LISTS[0].getFilters(),
+              )}
+              disabled={isNavigating}
+              style={{
+                padding: "16px 32px",
+                backgroundColor: "#1e293b",
+                border: "2px solid #3b82f6",
+                borderRadius: "12px",
+                cursor: isNavigating ? "wait" : "pointer",
+                textAlign: "left",
+                transition: "all 0.2s",
+                minWidth: "240px",
+              }}
+              onMouseOver={(e) => {
+                if (!isNavigating) {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                    "#253548";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "#60a5fa";
+                }
+              }}
+              onMouseOut={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "#1e293b";
+                (e.currentTarget as HTMLButtonElement).style.borderColor =
+                  "#3b82f6";
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  justifyContent: "center",
+                }}
+              >
+                <span style={{ fontSize: "1.8rem" }}>
+                  {EXAMPLE_LISTS[0].emoji}
+                </span>
+                <div>
+                  <div
+                    style={{
+                      color: "#e1e8ed",
+                      fontWeight: "700",
+                      fontSize: "1.1rem",
+                    }}
+                  >
+                    {EXAMPLE_LISTS[0].title}
+                  </div>
+                  <div
+                    style={{
+                      color: "#71767b",
+                      fontSize: "0.85rem",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {EXAMPLE_LISTS[0].subtitle}
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Rest of the lists in 2-column grid */}
           <div
             style={{
               display: "grid",
@@ -315,7 +393,7 @@ export default function HomePage() {
               margin: "0 auto",
             }}
           >
-            {EXAMPLE_LISTS.map((example) => (
+            {EXAMPLE_LISTS.slice(1).map((example) => (
               <button
                 type="button"
                 key={example.path}
