@@ -53,7 +53,9 @@ Output:
 
   const browser = await chromium.launch();
   // Use smaller desktop viewport for smaller screenshots (easier LLM parsing)
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
 
   try {
     console.log(`Navigating to ${url}...`);

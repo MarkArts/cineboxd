@@ -33,14 +33,18 @@ function getNextWeekRange(): string {
   const today = new Date();
   const endOfWeek = new Date(today);
   endOfWeek.setDate(today.getDate() + 7);
-  return `startDate=${getDateString(today)}&endDate=${getDateString(endOfWeek)}`;
+  return `startDate=${getDateString(today)}&endDate=${
+    getDateString(endOfWeek)
+  }`;
 }
 
 function getNextMonthRange(): string {
   const today = new Date();
   const endOfMonth = new Date(today);
   endOfMonth.setDate(today.getDate() + 30);
-  return `startDate=${getDateString(today)}&endDate=${getDateString(endOfMonth)}`;
+  return `startDate=${getDateString(today)}&endDate=${
+    getDateString(endOfMonth)
+  }`;
 }
 
 // Example lists to showcase
@@ -301,7 +305,8 @@ export default function HomePage() {
               <button
                 type="button"
                 key={example.path}
-                onClick={() => navigateToExample(example.path, example.getFilters())}
+                onClick={() =>
+                  navigateToExample(example.path, example.getFilters())}
                 disabled={isNavigating}
                 style={{
                   padding: "16px",

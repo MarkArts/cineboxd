@@ -53,7 +53,8 @@ function FilmReelSpinner() {
               borderRadius: "50%",
               top: "50%",
               left: "50%",
-              transform: `rotate(${angle}deg) translateY(-30px) translateX(-6px)`,
+              transform:
+                `rotate(${angle}deg) translateY(-30px) translateX(-6px)`,
             }}
           />
         ))}

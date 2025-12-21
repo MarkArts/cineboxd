@@ -854,7 +854,7 @@ export const handler: Handlers = {
       }
 
       // Check cache first (v10 with list path support)
-      const cacheKey = `showtimes:v10:${listPath}`;
+      const cacheKey = `showtimes:v11:${listPath}`;
       const cached = await getCached<Record<string, unknown>>(cacheKey);
       if (cached) {
         const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
