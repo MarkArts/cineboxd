@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Cache TTL: 1 hour
-const CACHE_TTL_MS = 60 * 60 * 1000;
+// Cache TTLs
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for showtimes
+const METADATA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for TMDB metadata
 const CHUNK_SIZE = 60000; // 60KB chunks (under 64KB limit)
 
 // Pathé API configuration (new working endpoints on pathe.nl)
@@ -207,8 +208,41 @@ interface TMDBMovieDetails {
   };
 }
 
-// In-memory cache for TMDB lookups (per-request)
-const tmdbCache = new Map<string, TMDBMovieDetails | null>();
+// In-memory cache for TMDB lookups during request (persisted to KV for long-term)
+const tmdbMemoryCache = new Map<string, TMDBMovieDetails | null>();
+
+// Get cached TMDB metadata from Deno KV (30-day TTL)
+async function getCachedTMDBMetadata(title: string): Promise<TMDBMovieDetails | null | undefined> {
+  const store = await getKv();
+  if (!store) return undefined; // undefined = no cache available
+
+  try {
+    const key = ['tmdb', title.toLowerCase()];
+    const result = await store.get(key);
+    if (!result.value) return undefined;
+
+    const { data, timestamp } = result.value as { data: TMDBMovieDetails | null; timestamp: number };
+    if (Date.now() - timestamp >= METADATA_CACHE_TTL_MS) {
+      return undefined; // expired
+    }
+    return data;
+  } catch {
+    return undefined;
+  }
+}
+
+// Store TMDB metadata in Deno KV
+async function setCachedTMDBMetadata(title: string, data: TMDBMovieDetails | null): Promise<void> {
+  const store = await getKv();
+  if (!store) return;
+
+  try {
+    const key = ['tmdb', title.toLowerCase()];
+    await store.set(key, { data, timestamp: Date.now() });
+  } catch {
+    // ignore cache errors
+  }
+}
 
 // Search TMDB for a movie by title
 const searchTMDB = async (title: string): Promise<TMDBMovie | null> => {
@@ -235,7 +269,22 @@ const getTMDBDetails = async (movieId: number): Promise<TMDBMovieDetails | null>
   }
 };
 
+// Convert TMDB details to metadata format
+const tmdbDetailsToMetadata = (details: TMDBMovieDetails | null): {
+  poster?: { url: string };
+  directors: string[];
+  duration: number;
+} | null => {
+  if (!details) return null;
+  return {
+    poster: details.poster_path ? { url: `${TMDB_IMAGE_BASE}${details.poster_path}` } : undefined,
+    directors: details.credits?.crew.filter(c => c.job === 'Director').map(c => c.name) || [],
+    duration: details.runtime || 0,
+  };
+};
+
 // Get movie metadata from TMDB (poster, directors, duration)
+// Uses 30-day persistent cache in Deno KV
 const getMovieMetadata = async (title: string): Promise<{
   poster?: { url: string };
   directors: string[];
@@ -244,36 +293,34 @@ const getMovieMetadata = async (title: string): Promise<{
   // Skip if no API key configured
   if (!TMDB_API_KEY) return null;
 
-  // Check cache first
   const cacheKey = title.toLowerCase();
-  if (tmdbCache.has(cacheKey)) {
-    const cached = tmdbCache.get(cacheKey);
-    if (!cached) return null;
-    return {
-      poster: cached.poster_path ? { url: `${TMDB_IMAGE_BASE}${cached.poster_path}` } : undefined,
-      directors: cached.credits?.crew.filter(c => c.job === 'Director').map(c => c.name) || [],
-      duration: cached.runtime || 0,
-    };
+
+  // Check in-memory cache first (for current request)
+  if (tmdbMemoryCache.has(cacheKey)) {
+    return tmdbDetailsToMetadata(tmdbMemoryCache.get(cacheKey) || null);
   }
 
-  // Search for movie
+  // Check persistent KV cache (30-day TTL)
+  const kvCached = await getCachedTMDBMetadata(title);
+  if (kvCached !== undefined) {
+    tmdbMemoryCache.set(cacheKey, kvCached);
+    return tmdbDetailsToMetadata(kvCached);
+  }
+
+  // Search for movie on TMDB
   const searchResult = await searchTMDB(title);
   if (!searchResult) {
-    tmdbCache.set(cacheKey, null);
+    tmdbMemoryCache.set(cacheKey, null);
+    await setCachedTMDBMetadata(title, null);
     return null;
   }
 
   // Get full details
   const details = await getTMDBDetails(searchResult.id);
-  tmdbCache.set(cacheKey, details);
+  tmdbMemoryCache.set(cacheKey, details);
+  await setCachedTMDBMetadata(title, details);
 
-  if (!details) return null;
-
-  return {
-    poster: details.poster_path ? { url: `${TMDB_IMAGE_BASE}${details.poster_path}` } : undefined,
-    directors: details.credits?.crew.filter(c => c.job === 'Director').map(c => c.name) || [],
-    duration: details.runtime || 0,
-  };
+  return tmdbDetailsToMetadata(details);
 };
 
 // ============ Pathé API Functions ============
@@ -608,8 +655,52 @@ const fetchCinevilleShowtimes = async (watchlistTitles: string[]): Promise<Show[
 
     console.log(`Cineville: fetched ${shows.length} showtimes`);
 
-    // Add chain identifier to each show
-    return shows.map((show: any) => ({ ...show, chain: 'cineville' as const }));
+    // Find films missing poster or directors for TMDB enrichment
+    const filmsNeedingEnrichment = new Map<string, any>();
+    for (const show of shows) {
+      const title = show.film?.title;
+      if (!title) continue;
+      const needsPoster = !show.film?.poster?.url;
+      const needsDirectors = !show.film?.directors?.length;
+      if (needsPoster || needsDirectors) {
+        filmsNeedingEnrichment.set(title, { needsPoster, needsDirectors });
+      }
+    }
+
+    // Fetch TMDB metadata for films needing enrichment
+    const tmdbMetadataMap = new Map<string, Awaited<ReturnType<typeof getMovieMetadata>>>();
+    if (TMDB_API_KEY && filmsNeedingEnrichment.size > 0) {
+      console.log(`Cineville: enriching ${filmsNeedingEnrichment.size} films with TMDB data`);
+      const titles = Array.from(filmsNeedingEnrichment.keys());
+      const metadataPromises = titles.map(title => getMovieMetadata(title));
+      const metadata = await Promise.all(metadataPromises);
+      titles.forEach((title, i) => tmdbMetadataMap.set(title, metadata[i]));
+      console.log(`Cineville: got TMDB data for ${metadata.filter(m => m !== null).length} films`);
+    }
+
+    // Add chain identifier and enrich with TMDB data
+    return shows.map((show: any) => {
+      const enriched = { ...show, chain: 'cineville' as const };
+      const title = show.film?.title;
+      const tmdb = title ? tmdbMetadataMap.get(title) : null;
+
+      if (tmdb) {
+        // Enrich missing poster
+        if (!enriched.film.poster?.url && tmdb.poster) {
+          enriched.film = { ...enriched.film, poster: tmdb.poster };
+        }
+        // Enrich missing directors
+        if (!enriched.film.directors?.length && tmdb.directors?.length) {
+          enriched.film = { ...enriched.film, directors: tmdb.directors };
+        }
+        // Enrich missing duration
+        if (!enriched.film.duration && tmdb.duration) {
+          enriched.film = { ...enriched.film, duration: tmdb.duration };
+        }
+      }
+
+      return enriched;
+    });
   } catch (e) {
     console.error('Cineville fetch failed:', e);
     return [];
@@ -621,15 +712,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const username = (searchParams.get("username") || "105424").trim();
 
-    // Check cache first (v8 with TMDB metadata)
-    const cacheKey = `showtimes:v8:${username}`;
+    // Check cache first (v9 with 24h cache + Cineville TMDB enrichment)
+    const cacheKey = `showtimes:v9:${username}`;
     const cached = await getCached<any>(cacheKey);
     if (cached) {
-      const CACHE_SECONDS = 60 * 60;
+      const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
       return NextResponse.json(cached, {
         status: 200,
         headers: {
-          'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=60`,
+          'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
           'Surrogate-Control': `max-age=${CACHE_SECONDS}`,
           'Vary': 'Accept-Encoding',
           'X-Cache': 'HIT',
@@ -672,12 +763,12 @@ export async function GET(request: NextRequest) {
     // Store in cache
     await setCache(cacheKey, resp);
 
-    const CACHE_SECONDS = 60 * 60;
+    const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
 
     return NextResponse.json(resp, {
       status: 200,
       headers: {
-        'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=60`,
+        'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
         'Surrogate-Control': `max-age=${CACHE_SECONDS}`,
         'Vary': 'Accept-Encoding',
         'X-Cache': 'MISS',
