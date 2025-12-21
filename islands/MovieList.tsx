@@ -406,14 +406,15 @@ export default function MovieList({ listPath }: MovieListProps) {
       setStartDate(todayStr);
       setEndDate(todayStr);
     } else if (type === "week") {
-      const endOfWeek = new Date(today);
-      endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
       setStartDate(todayStr);
-      setEndDate(endOfWeek.toISOString().split("T")[0]);
+      setEndDate(nextWeek.toISOString().split("T")[0]);
     } else {
-      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const nextMonth = new Date(today);
+      nextMonth.setDate(today.getDate() + 30);
       setStartDate(todayStr);
-      setEndDate(endOfMonth.toISOString().split("T")[0]);
+      setEndDate(nextMonth.toISOString().split("T")[0]);
     }
   };
 
@@ -498,7 +499,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                   cursor: "pointer",
                 }}
               >
-                This Week
+                Next Week
               </button>
               <button
                 type="button"
@@ -513,7 +514,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                   cursor: "pointer",
                 }}
               >
-                This Month
+                Next Month
               </button>
             </div>
 
