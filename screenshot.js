@@ -1,5 +1,5 @@
 import process from "node:process";
-const { chromium } = require("playwright");
+import { chromium } from "playwright";
 
 function showHelp() {
   console.log(`
@@ -52,7 +52,8 @@ Output:
   }
 
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  // Use smaller desktop viewport for smaller screenshots (easier LLM parsing)
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
   try {
     console.log(`Navigating to ${url}...`);
@@ -64,14 +65,14 @@ Output:
     console.log("Taking desktop screenshot...");
     await page.screenshot({
       path: `${filePrefix}desktop-screenshot.png`,
-      fullPage: true,
+      fullPage: false, // Viewport only, not full page - keeps file smaller
     });
 
     console.log("Taking mobile screenshot...");
     await page.setViewportSize({ width: 375, height: 812 });
     await page.screenshot({
       path: `${filePrefix}mobile-screenshot.png`,
-      fullPage: true,
+      fullPage: false, // Viewport only
     });
 
     console.log(
