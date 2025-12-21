@@ -75,10 +75,10 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
           gap: '16px'
         }}
       >
-        {/* Poster - doubled size */}
+        {/* Poster */}
         <div style={{
-          width: '160px',
-          height: '240px',
+          width: '200px',
+          height: '300px',
           flexShrink: 0,
           backgroundColor: '#2f3336',
           borderRadius: '4px',
@@ -112,7 +112,7 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
         </div>
 
         {/* Right side: Film Info + Theaters */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '240px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
           {/* Film Info */}
           <div>
             <h3 style={{
@@ -195,7 +195,7 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
               display: 'flex',
               flexDirection: 'column',
               gap: '8px',
-              flex: 1,
+              maxHeight: '220px',
               overflowY: 'auto'
             }}>
               {Array.from(showsByDate.get(selectedDate)!.values())
