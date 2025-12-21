@@ -14,23 +14,45 @@ const TMDB_API_KEY = Deno.env.get('TMDB_API_KEY') || '';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 
-// Major Pathé cinemas (one per major city) for faster API response
+// All Pathé cinema locations in the Netherlands
 const PATHE_CINEMAS: { slug: string; city: string; name: string }[] = [
+  // Amsterdam (5 locations)
+  { slug: 'pathe-arena', city: 'Amsterdam', name: 'Pathé Arena' },
+  { slug: 'pathe-city', city: 'Amsterdam', name: 'Pathé City' },
   { slug: 'pathe-de-munt', city: 'Amsterdam', name: 'Pathé De Munt' },
+  { slug: 'pathe-amsterdam-noord', city: 'Amsterdam', name: 'Pathé Noord' },
+  { slug: 'pathe-tuschinski', city: 'Amsterdam', name: 'Pathé Tuschinski' },
+  // Den Haag (4 locations)
   { slug: 'pathe-buitenhof', city: 'Den Haag', name: 'Pathé Buitenhof' },
+  { slug: 'pathe-scheveningen', city: 'Den Haag', name: 'Pathé Scheveningen' },
+  { slug: 'pathe-spuimarkt', city: 'Den Haag', name: 'Pathé Spuimarkt' },
+  { slug: 'pathe-ypenburg', city: 'Den Haag', name: 'Pathé Ypenburg' },
+  // Rotterdam (3 locations)
+  { slug: 'pathe-de-kuip', city: 'Rotterdam', name: 'Pathé De Kuip' },
   { slug: 'pathe-schouwburgplein', city: 'Rotterdam', name: 'Pathé Schouwburgplein' },
+  { slug: 'pathe-schiedam', city: 'Schiedam', name: 'Pathé Schiedam' },
+  // Utrecht (2 locations)
   { slug: 'pathe-rembrandt-utrecht', city: 'Utrecht', name: 'Pathé Rembrandt' },
+  { slug: 'pathe-utrecht-leidsche-rijn', city: 'Utrecht', name: 'Pathé Leidsche Rijn' },
+  // Tilburg (2 locations)
+  { slug: 'pathe-tilburg-centrum', city: 'Tilburg', name: 'Pathé Tilburg Centrum' },
+  { slug: 'pathe-tilburg-stappegoor', city: 'Tilburg', name: 'Pathé Tilburg Stappegoor' },
+  // Other cities (single locations)
+  { slug: 'pathe-amersfoort', city: 'Amersfoort', name: 'Pathé Amersfoort' },
+  { slug: 'pathe-arnhem', city: 'Arnhem', name: 'Pathé Arnhem' },
+  { slug: 'pathe-breda', city: 'Breda', name: 'Pathé Breda' },
+  { slug: 'pathe-delft', city: 'Delft', name: 'Pathé Delft' },
+  { slug: 'pathe-ede', city: 'Ede', name: 'Pathé Ede' },
   { slug: 'pathe-eindhoven', city: 'Eindhoven', name: 'Pathé Eindhoven' },
   { slug: 'pathe-groningen', city: 'Groningen', name: 'Pathé Groningen' },
-  { slug: 'pathe-breda', city: 'Breda', name: 'Pathé Breda' },
-  { slug: 'pathe-arnhem', city: 'Arnhem', name: 'Pathé Arnhem' },
-  { slug: 'pathe-tilburg-centrum', city: 'Tilburg', name: 'Pathé Tilburg' },
   { slug: 'pathe-haarlem', city: 'Haarlem', name: 'Pathé Haarlem' },
-  { slug: 'pathe-nijmegen', city: 'Nijmegen', name: 'Pathé Nijmegen' },
-  { slug: 'pathe-maastricht', city: 'Maastricht', name: 'Pathé Maastricht' },
-  { slug: 'pathe-zwolle', city: 'Zwolle', name: 'Pathé Zwolle' },
-  { slug: 'pathe-amersfoort', city: 'Amersfoort', name: 'Pathé Amersfoort' },
+  { slug: 'pathe-helmond', city: 'Helmond', name: 'Pathé Helmond' },
   { slug: 'pathe-leeuwarden', city: 'Leeuwarden', name: 'Pathé Leeuwarden' },
+  { slug: 'pathe-maastricht', city: 'Maastricht', name: 'Pathé Maastricht' },
+  { slug: 'pathe-nijmegen', city: 'Nijmegen', name: 'Pathé Nijmegen' },
+  { slug: 'pathe-vlissingen', city: 'Vlissingen', name: 'Pathé Vlissingen' },
+  { slug: 'pathe-zaandam', city: 'Zaandam', name: 'Pathé Zaandam' },
+  { slug: 'pathe-zwolle', city: 'Zwolle', name: 'Pathé Zwolle' },
 ];
 
 // Shared Show interface (matches frontend)
