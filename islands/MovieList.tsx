@@ -887,11 +887,31 @@ export default function MovieList({ listPath }: MovieListProps) {
           <div
             style={{
               textAlign: "center",
-              padding: "40px",
-              color: "#71767b",
+              padding: "60px 40px",
             }}
           >
-            No movies found
+            <div style={{ fontSize: "3rem", marginBottom: "16px" }}>🎬</div>
+            <p
+              style={{
+                color: "#9ca3af",
+                fontSize: "1.1rem",
+                marginBottom: "16px",
+              }}
+            >
+              No showtimes found for this list
+            </p>
+            <a
+              href={`https://letterboxd.com/${listPath}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "#3b82f6",
+                textDecoration: "none",
+                fontSize: "0.95rem",
+              }}
+            >
+              View list on Letterboxd →
+            </a>
           </div>
         )}
 
@@ -914,6 +934,27 @@ export default function MovieList({ listPath }: MovieListProps) {
             ))}
           </div>
         )}
+
+        {/* Footer */}
+        <footer
+          style={{
+            marginTop: "48px",
+            paddingTop: "24px",
+            borderTop: "1px solid #2f3336",
+            textAlign: "center",
+          }}
+        >
+          <a
+            href="/105424/watchlist/"
+            style={{
+              color: "#71767b",
+              textDecoration: "none",
+              fontSize: "0.85rem",
+            }}
+          >
+            Check out the creator's watchlist →
+          </a>
+        </footer>
       </main>
     </div>
   );

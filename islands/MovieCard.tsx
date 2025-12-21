@@ -301,17 +301,6 @@ export default function MovieCard(
                                 }}
                               >
                                 {formatTime(show.startDate)}
-                                {show.chain && (
-                                  <span
-                                    style={{
-                                      fontSize: "9px",
-                                      opacity: 0.8,
-                                      fontWeight: "bold",
-                                    }}
-                                  >
-                                    {isPathe ? "P" : "CV"}
-                                  </span>
-                                )}
                               </a>
                             );
                           })}
