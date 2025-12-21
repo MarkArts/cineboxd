@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering - skip static analysis during build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Cache TTL: 1 hour
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const CHUNK_SIZE = 60000; // 60KB chunks (under 64KB limit)
