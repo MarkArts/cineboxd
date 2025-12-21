@@ -1,5 +1,43 @@
 import { useMemo, useState } from "preact/hooks";
 
+// Generate optimized poster URLs for srcset
+function getPosterSrcSet(url: string): { src: string; srcSet: string } {
+  if (!url) return { src: url, srcSet: "" };
+
+  // imgix URLs - generate multiple sizes
+  if (url.includes("imgix.net")) {
+    const base = url.split("?")[0];
+    const sizes = [200, 400, 600];
+    const srcSet = sizes
+      .map((w) =>
+        `${base}?w=${w}&h=${
+          Math.round(w * 1.5)
+        }&fit=crop&auto=format,compress&q=75 ${w}w`
+      )
+      .join(", ");
+    return {
+      src: `${base}?w=200&h=300&fit=crop&auto=format,compress&q=75`,
+      srcSet,
+    };
+  }
+
+  // TMDB URLs - use available sizes
+  if (url.includes("image.tmdb.org")) {
+    const pathMatch = url.match(/\/t\/p\/\w+(\/.+)$/);
+    if (pathMatch) {
+      const imagePath = pathMatch[1];
+      const baseUrl = "https://image.tmdb.org/t/p";
+      return {
+        src: `${baseUrl}/w342${imagePath}`,
+        srcSet:
+          `${baseUrl}/w185${imagePath} 185w, ${baseUrl}/w342${imagePath} 342w, ${baseUrl}/w500${imagePath} 500w`,
+      };
+    }
+  }
+
+  return { src: url, srcSet: "" };
+}
+
 interface Show {
   id: string;
   startDate: string;
@@ -71,6 +109,12 @@ export default function MovieCard(
     dateKeys.length > 0 ? dateKeys[0] : "",
   );
 
+  // Memoize poster URLs
+  const posterUrls = useMemo(
+    () => (film.poster?.url ? getPosterSrcSet(film.poster.url) : null),
+    [film.poster?.url],
+  );
+
   return (
     <article
       style={{
@@ -101,13 +145,17 @@ export default function MovieCard(
             overflow: "hidden",
           }}
         >
-          {film.poster?.url
+          {posterUrls
             ? (
               <img
-                src={film.poster.url}
+                src={posterUrls.src}
+                srcSet={posterUrls.srcSet || undefined}
+                sizes="(max-width: 768px) 120px, 200px"
                 alt={film.title}
                 loading="lazy"
                 decoding="async"
+                width={200}
+                height={300}
                 style={{
                   width: "100%",
                   height: "100%",
