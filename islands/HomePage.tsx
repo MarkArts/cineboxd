@@ -50,24 +50,24 @@ function getNextMonthRange(): string {
 // Example lists to showcase
 const EXAMPLE_LISTS = [
   {
-    title: "Sight and Sound 2024",
+    title: "Sight & Sound 2025",
     subtitle: "This week",
-    path: "idiah/list/sight-and-sound-2024",
-    emoji: "🎥",
+    path: "filmjournl/list/sight-sound-2025",
+    emoji: "🏆",
     getFilters: getNextWeekRange,
   },
   {
-    title: "Top 250 Films with the Most Fans",
+    title: "Sight & Sound 2024",
     subtitle: "Next month",
-    path: "jack/list/official-top-250-films-with-the-most-fans",
-    emoji: "❤️",
+    path: "idiah/list/sight-and-sound-2024",
+    emoji: "🎥",
     getFilters: getNextMonthRange,
   },
   {
-    title: "Movies Everyone Should Watch",
+    title: "Top 250 Most Popular",
     subtitle: "This week",
-    path: "fcbarcelona/list/movies-everyone-should-watch-at-least-once",
-    emoji: "✨",
+    path: "jack/list/official-top-250-films-with-the-most-fans",
+    emoji: "❤️",
     getFilters: getNextWeekRange,
   },
   {
@@ -75,6 +75,20 @@ const EXAMPLE_LISTS = [
     subtitle: "Next month",
     path: "benvsthemovies/list/the-criterion-challenge-2026",
     emoji: "🎬",
+    getFilters: getNextMonthRange,
+  },
+  {
+    title: "Creator's Watchlist",
+    subtitle: "What I want to see",
+    path: "105424/watchlist",
+    emoji: "👨‍💻",
+    getFilters: getNextWeekRange,
+  },
+  {
+    title: "Movies Everyone Should Watch",
+    subtitle: "Next month",
+    path: "fcbarcelona/list/movies-everyone-should-watch-at-least-once",
+    emoji: "✨",
     getFilters: getNextMonthRange,
   },
 ];
