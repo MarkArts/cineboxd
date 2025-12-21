@@ -24,35 +24,54 @@ function parseLetterboxdInput(input: string): string {
   return path;
 }
 
+// Date helpers for time range filters
+function getDateString(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+function getNextWeekRange(): string {
+  const today = new Date();
+  const endOfWeek = new Date(today);
+  endOfWeek.setDate(today.getDate() + 7);
+  return `startDate=${getDateString(today)}&endDate=${getDateString(endOfWeek)}`;
+}
+
+function getNextMonthRange(): string {
+  const today = new Date();
+  const endOfMonth = new Date(today);
+  endOfMonth.setDate(today.getDate() + 30);
+  return `startDate=${getDateString(today)}&endDate=${getDateString(endOfMonth)}`;
+}
+
 // Example lists to showcase
 const EXAMPLE_LISTS = [
   {
-    title: "IMDB Top 250",
-    subtitle: "Classic masterpieces playing near you",
-    path: "dave/list/official-top-250-narrative-feature-films",
-    emoji: "🏆",
-    filters: "",
+    title: "Sight & Sound 2024",
+    subtitle: "Critics' picks this week",
+    path: "idiah/list/sight-and-sound-2024",
+    emoji: "🎥",
+    getFilters: getNextWeekRange,
   },
   {
-    title: "A24 Films",
-    subtitle: "Indie darlings and arthouse hits",
-    path: "gubarenko/list/a24-films-ranked",
+    title: "Most Popular",
+    subtitle: "Fan favorites next month",
+    path: "jack/list/official-top-250-films-with-the-most-fans",
+    emoji: "❤️",
+    getFilters: getNextMonthRange,
+  },
+  {
+    title: "Must Watch",
+    subtitle: "Essential cinema this week",
+    path: "fcbarcelona/list/movies-everyone-should-watch-at-least-once",
+    emoji: "✨",
+    getFilters: getNextWeekRange,
+  },
+  {
+    title: "Criterion 2026",
+    subtitle: "Arthouse gems next month",
+    path: "benvsthemovies/list/the-criterion-challenge-2026",
     emoji: "🎬",
-    filters: "",
-  },
-  {
-    title: "Oscar Winners",
-    subtitle: "Academy Award Best Picture winners",
-    path: "darrencb/list/academy-award-best-picture-winners",
-    emoji: "🏅",
-    filters: "",
-  },
-  {
-    title: "Studio Ghibli",
-    subtitle: "Magical animated adventures",
-    path: "letterboxd/list/official-ranking-studio-ghibli",
-    emoji: "🌸",
-    filters: "",
+    getFilters: getNextMonthRange,
   },
 ];
 
@@ -282,7 +301,7 @@ export default function HomePage() {
               <button
                 type="button"
                 key={example.path}
-                onClick={() => navigateToExample(example.path, example.filters)}
+                onClick={() => navigateToExample(example.path, example.getFilters())}
                 disabled={isNavigating}
                 style={{
                   padding: "16px",
