@@ -1,6 +1,8 @@
 # Next.js with Deno Tutorial
 
-This project demonstrates how to run a [Next.js](https://nextjs.org) application using [Deno](https://deno.com). It's a complete tutorial example showing how to set up, develop, and deploy a Next.js app in the Deno runtime environment.
+This project demonstrates how to run a [Next.js](https://nextjs.org) application
+using [Deno](https://deno.com). It's a complete tutorial example showing how to
+set up, develop, and deploy a Next.js app in the Deno runtime environment.
 
 ## Make it your own!
 
@@ -19,7 +21,8 @@ This tutorial project shows you how to:
 - Update the frontend to fetch data from the backend
 - Deploy your Next.js app to Deno Deploy
 
-For the complete step-by-step of this tutorial, visit: [**Next.js Tutorial on Deno Docs**](https://docs.deno.com/examples/next_tutorial/)
+For the complete step-by-step of this tutorial, visit:
+[**Next.js Tutorial on Deno Docs**](https://docs.deno.com/examples/next_tutorial/)
 
 ## Getting Started
 
@@ -29,9 +32,11 @@ First, run the development server:
 deno run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the
+result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+You can start editing the page by modifying `app/page.tsx`. The page
+auto-updates as you edit the file.
 
 ## Deploy on Deno
 

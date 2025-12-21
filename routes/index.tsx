@@ -1,5 +1,5 @@
-import MovieList from "../islands/MovieList.tsx";
+import HomePage from "../islands/HomePage.tsx";
 
 export default function Home() {
-  return <MovieList />;
+  return <HomePage />;
 }
