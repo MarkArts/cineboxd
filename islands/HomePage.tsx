@@ -91,6 +91,13 @@ const EXAMPLE_LISTS = [
     emoji: "✨",
     getFilters: getNextMonthRange,
   },
+  {
+    title: "Snautsie's Watchlist",
+    subtitle: "My brother's picks",
+    path: "Snautsie/watchlist",
+    emoji: "👨‍👦",
+    getFilters: () => "",
+  },
 ];
 
 export default function HomePage() {
