@@ -22,6 +22,13 @@ export default function App({ Component }: PageProps) {
             background-color: #0f1419;
             color: #e1e8ed;
             font-family: system-ui, -apple-system, sans-serif;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+          }
+
+          /* Performance optimizations */
+          img {
+            content-visibility: auto;
           }
 
           /* Bokeh animation for home page */

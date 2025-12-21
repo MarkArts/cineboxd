@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 
 interface Show {
   id: string;
@@ -45,25 +45,30 @@ function formatDuration(minutes: number): string {
 export default function MovieCard(
   { film, showsByDateAndTheater }: MovieCardProps,
 ) {
-  const sortedEntries = showsByDateAndTheater.sort((a, b) => {
-    const dateA = a[1].date;
-    const dateB = b[1].date;
-    if (dateA !== dateB) return dateA.localeCompare(dateB);
-    return a[1].theater.name.localeCompare(b[1].theater.name);
-  });
+  // Memoize sorting and grouping to avoid recalculation on every render
+  const showsByDate = useMemo(() => {
+    const sortedEntries = [...showsByDateAndTheater].sort((a, b) => {
+      const dateA = a[1].date;
+      const dateB = b[1].date;
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      return a[1].theater.name.localeCompare(b[1].theater.name);
+    });
 
-  // Group shows by date for the horizontal date list
-  const showsByDate = new Map<string, Map<string, TheaterData>>();
-  sortedEntries.forEach(([_key, data]) => {
-    const date = data.date;
-    if (!showsByDate.has(date)) {
-      showsByDate.set(date, new Map());
-    }
-    showsByDate.get(date)!.set(data.theater.name, data);
-  });
+    const grouped = new Map<string, Map<string, TheaterData>>();
+    sortedEntries.forEach(([_key, data]) => {
+      const date = data.date;
+      if (!grouped.has(date)) {
+        grouped.set(date, new Map());
+      }
+      grouped.get(date)!.set(data.theater.name, data);
+    });
+    return grouped;
+  }, [showsByDateAndTheater]);
+
+  const dateKeys = useMemo(() => Array.from(showsByDate.keys()), [showsByDate]);
 
   const [selectedDate, setSelectedDate] = useState<string>(
-    showsByDate.size > 0 ? Array.from(showsByDate.keys())[0] : "",
+    dateKeys.length > 0 ? dateKeys[0] : "",
   );
 
   return (
@@ -74,6 +79,7 @@ export default function MovieCard(
         border: "1px solid #2f3336",
         overflow: "hidden",
         padding: "16px",
+        contain: "layout style paint",
       }}
     >
       <div
@@ -100,6 +106,8 @@ export default function MovieCard(
               <img
                 src={film.poster.url}
                 alt={film.title}
+                loading="lazy"
+                decoding="async"
                 style={{
                   width: "100%",
                   height: "100%",
@@ -178,7 +186,7 @@ export default function MovieCard(
                 borderBottom: "1px solid #2f3336",
               }}
             >
-              {Array.from(showsByDate.keys()).map((date) => {
+              {dateKeys.map((date) => {
                 const dateStr = new Date(date + "T00:00:00").toLocaleDateString(
                   "en-GB",
                   {
@@ -203,7 +211,6 @@ export default function MovieCard(
                       fontSize: "13px",
                       cursor: "pointer",
                       whiteSpace: "nowrap",
-                      transition: "all 0.2s",
                     }}
                   >
                     {dateStr}
@@ -294,10 +301,7 @@ export default function MovieCard(
                                   cursor: show.ticketingUrl
                                     ? "pointer"
                                     : "default",
-                                  transition: "background-color 0.2s",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "4px",
+                                  display: "inline-block",
                                 }}
                               >
                                 {formatTime(show.startDate)}

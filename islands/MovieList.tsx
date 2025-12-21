@@ -925,13 +925,20 @@ export default function MovieList({ listPath }: MovieListProps) {
             }}
           >
             {groupedFilms.map(({ film, showsByDateAndTheater }) => (
-              <MovieCard
+              <div
                 key={film.slug}
-                film={film}
-                showsByDateAndTheater={Array.from(
-                  showsByDateAndTheater.entries(),
-                )}
-              />
+                style={{
+                  contentVisibility: "auto",
+                  containIntrinsicSize: "0 400px",
+                }}
+              >
+                <MovieCard
+                  film={film}
+                  showsByDateAndTheater={Array.from(
+                    showsByDateAndTheater.entries(),
+                  )}
+                />
+              </div>
             ))}
           </div>
         )}
