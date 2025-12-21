@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 
+// Disable all static generation
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 export const metadata: Metadata = {
   title: "Cineboxd API",
   description: "API for fetching Letterboxd watchlist showtimes",

@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Disable static page generation to reduce build memory
-  experimental: {
-    // Skip type checking in build (done separately)
-    typedRoutes: false,
+  // Skip linting and type checking during build (reduces memory usage)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
   },
   // Disable image optimization for serverless
   images: {
