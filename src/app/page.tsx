@@ -566,6 +566,73 @@ export default function Home() {
               {isLoading ? 'Loading...' : 'Get Shows'}
             </button>
 
+            {/* Date Shortcuts */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0];
+                  setStartDate(today);
+                  setEndDate(today);
+                }}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid #2f3336',
+                  backgroundColor: '#0f1419',
+                  color: '#e1e8ed',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2f3336'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0f1419'}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const endOfWeek = new Date(today);
+                  endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
+                  setStartDate(today.toISOString().split('T')[0]);
+                  setEndDate(endOfWeek.toISOString().split('T')[0]);
+                }}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid #2f3336',
+                  backgroundColor: '#0f1419',
+                  color: '#e1e8ed',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2f3336'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0f1419'}
+              >
+                This Week
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  setStartDate(today.toISOString().split('T')[0]);
+                  setEndDate(endOfMonth.toISOString().split('T')[0]);
+                }}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid #2f3336',
+                  backgroundColor: '#0f1419',
+                  color: '#e1e8ed',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2f3336'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0f1419'}
+              >
+                This Month
+              </button>
+            </div>
+
             {/* Date Filters */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '12px', color: '#71767b' }}>From:</span>
