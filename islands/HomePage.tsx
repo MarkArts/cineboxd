@@ -46,29 +46,29 @@ function getNextMonthRange(): string {
 // Example lists to showcase
 const EXAMPLE_LISTS = [
   {
-    title: "Sight & Sound 2024",
-    subtitle: "Critics' picks this week",
+    title: "Sight and Sound 2024",
+    subtitle: "This week",
     path: "idiah/list/sight-and-sound-2024",
     emoji: "🎥",
     getFilters: getNextWeekRange,
   },
   {
-    title: "Most Popular",
-    subtitle: "Fan favorites next month",
+    title: "Top 250 Films with the Most Fans",
+    subtitle: "Next month",
     path: "jack/list/official-top-250-films-with-the-most-fans",
     emoji: "❤️",
     getFilters: getNextMonthRange,
   },
   {
-    title: "Must Watch",
-    subtitle: "Essential cinema this week",
+    title: "Movies Everyone Should Watch",
+    subtitle: "This week",
     path: "fcbarcelona/list/movies-everyone-should-watch-at-least-once",
     emoji: "✨",
     getFilters: getNextWeekRange,
   },
   {
-    title: "Criterion 2026",
-    subtitle: "Arthouse gems next month",
+    title: "The Criterion Challenge 2026",
+    subtitle: "Next month",
     path: "benvsthemovies/list/the-criterion-challenge-2026",
     emoji: "🎬",
     getFilters: getNextMonthRange,
