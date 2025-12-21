@@ -207,27 +207,45 @@ export default function MovieList() {
       }>;
     }> = {};
 
+    // Normalize title for grouping (combine Pathé and Cineville entries for same movie)
+    const normalizeTitle = (title: string) => title.toLowerCase().trim();
+
     filteredShowtimes.forEach(show => {
-      if (!films[show.film.slug]) {
-        films[show.film.slug] = {
+      const filmKey = normalizeTitle(show.film.title);
+      if (!films[filmKey]) {
+        films[filmKey] = {
           film: show.film,
           shows: [],
           showsByDateAndTheater: new Map()
         };
       }
-      films[show.film.slug].shows.push(show);
+      // Use the film with more complete data (prefer one with poster/directors)
+      const existing = films[filmKey].film;
+      if (
+        (!existing.poster?.url && show.film.poster?.url) ||
+        (!existing.directors?.length && show.film.directors?.length) ||
+        (!existing.duration && show.film.duration)
+      ) {
+        films[filmKey].film = {
+          ...existing,
+          poster: show.film.poster?.url ? show.film.poster : existing.poster,
+          directors: show.film.directors?.length ? show.film.directors : existing.directors,
+          duration: show.film.duration || existing.duration,
+        };
+      }
+      films[filmKey].shows.push(show);
 
       // Group shows by date and theater
       const showDate = show.startDate.split('T')[0];
       const key = `${showDate}_${show.theater.name}`;
-      if (!films[show.film.slug].showsByDateAndTheater.has(key)) {
-        films[show.film.slug].showsByDateAndTheater.set(key, {
+      if (!films[filmKey].showsByDateAndTheater.has(key)) {
+        films[filmKey].showsByDateAndTheater.set(key, {
           date: showDate,
           theater: show.theater,
           shows: []
         });
       }
-      films[show.film.slug].showsByDateAndTheater.get(key)!.shows.push(show);
+      films[filmKey].showsByDateAndTheater.get(key)!.shows.push(show);
     });
 
     return Object.values(films).sort((a, b) => a.film.title.localeCompare(b.film.title));
