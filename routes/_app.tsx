@@ -129,6 +129,25 @@ export default function App({ Component }: PageProps) {
             animation: film-reel-spin 2s linear infinite;
           }
 
+          /* Featured list button glow effect */
+          @keyframes glow-pulse {
+            0%, 100% {
+              box-shadow:
+                0 0 20px rgba(59, 130, 246, 0.4),
+                0 0 40px rgba(139, 92, 246, 0.2),
+                0 0 60px rgba(236, 72, 153, 0.1);
+            }
+            50% {
+              box-shadow:
+                0 0 25px rgba(59, 130, 246, 0.6),
+                0 0 50px rgba(139, 92, 246, 0.4),
+                0 0 75px rgba(236, 72, 153, 0.2);
+            }
+          }
+          .featured-list-btn {
+            animation: glow-pulse 3s ease-in-out infinite;
+          }
+
           @media (max-width: 768px) {
             .header-controls {
               flex-direction: column !important;

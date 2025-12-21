@@ -325,6 +325,7 @@ export default function HomePage() {
           >
             <button
               type="button"
+              class="featured-list-btn"
               onClick={() => navigateToExample(
                 EXAMPLE_LISTS[0].path,
                 EXAMPLE_LISTS[0].getFilters(),
@@ -333,26 +334,27 @@ export default function HomePage() {
               style={{
                 padding: "16px 32px",
                 backgroundColor: "#1e293b",
-                border: "2px solid #3b82f6",
+                border: "none",
                 borderRadius: "12px",
                 cursor: isNavigating ? "wait" : "pointer",
                 textAlign: "left",
-                transition: "all 0.2s",
+                transition: "all 0.3s",
                 minWidth: "240px",
+                position: "relative",
               }}
               onMouseOver={(e) => {
                 if (!isNavigating) {
                   (e.currentTarget as HTMLButtonElement).style.backgroundColor =
                     "#253548";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    "#60a5fa";
+                  (e.currentTarget as HTMLButtonElement).style.transform =
+                    "scale(1.02)";
                 }
               }}
               onMouseOut={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.backgroundColor =
                   "#1e293b";
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "#3b82f6";
+                (e.currentTarget as HTMLButtonElement).style.transform =
+                  "scale(1)";
               }}
             >
               <div
