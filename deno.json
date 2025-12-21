@@ -2,7 +2,8 @@
     "nodeModulesDir": "auto",
     "unstable": [
         "unsafe-proto",
-        "sloppy-imports"
+        "sloppy-imports",
+        "kv"
     ],
     "compilerOptions": {
         "lib": [

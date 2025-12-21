@@ -1,27 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// In-memory cache (1 hour TTL)
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+// Cache TTL: 1 hour
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const CHUNK_SIZE = 60000; // 60KB chunks (under 64KB limit)
 
-const cache = new Map<string, { data: any; timestamp: number }>();
+// Deno KV singleton
+let kv: Deno.Kv | null = null;
 
-function getCached<T>(key: string): T | null {
-  const entry = cache.get(key);
-  if (entry) {
-    const age = Date.now() - entry.timestamp;
-    if (age < CACHE_TTL_MS) {
-      console.log(`Cache HIT for ${key} (age: ${Math.round(age / 1000)}s)`);
-      return entry.data as T;
+async function getKv(): Promise<Deno.Kv | null> {
+  if (kv) return kv;
+  try {
+    // @ts-ignore - Deno global
+    if (typeof Deno !== 'undefined' && Deno.openKv) {
+      // @ts-ignore
+      kv = await Deno.openKv();
+      console.log('Deno KV initialized');
+      return kv;
     }
-    console.log(`Cache expired for ${key}`);
-    cache.delete(key);
+  } catch (e) {
+    console.warn('Deno KV not available:', e);
   }
   return null;
 }
 
-function setCache<T>(key: string, data: T): void {
-  cache.set(key, { data, timestamp: Date.now() });
-  console.log(`Cached ${key}`);
+async function getCached<T>(key: string): Promise<T | null> {
+  const store = await getKv();
+  if (!store) return null;
+
+  try {
+    // Get metadata
+    const meta = await store.get<{ chunks: number; timestamp: number }>(['cache', key, 'meta']);
+    if (!meta.value) return null;
+
+    // Check TTL
+    const age = Date.now() - meta.value.timestamp;
+    if (age >= CACHE_TTL_MS) {
+      console.log(`Cache expired for ${key}`);
+      // Clean up expired cache
+      const deleteOps = store.atomic();
+      deleteOps.delete(['cache', key, 'meta']);
+      for (let i = 0; i < meta.value.chunks; i++) {
+        deleteOps.delete(['cache', key, 'chunk', i]);
+      }
+      await deleteOps.commit();
+      return null;
+    }
+
+    // Fetch all chunks
+    const chunks: string[] = [];
+    for (let i = 0; i < meta.value.chunks; i++) {
+      const chunk = await store.get<string>(['cache', key, 'chunk', i]);
+      if (!chunk.value) {
+        console.warn(`Missing chunk ${i} for ${key}`);
+        return null;
+      }
+      chunks.push(chunk.value);
+    }
+
+    console.log(`Cache HIT for ${key} (age: ${Math.round(age / 1000)}s, chunks: ${meta.value.chunks})`);
+    return JSON.parse(chunks.join('')) as T;
+  } catch (e) {
+    console.warn('Cache read error:', e);
+  }
+  return null;
+}
+
+async function setCache<T>(key: string, data: T): Promise<void> {
+  const store = await getKv();
+  if (!store) return;
+
+  try {
+    const json = JSON.stringify(data);
+    const chunks: string[] = [];
+
+    // Split into chunks
+    for (let i = 0; i < json.length; i += CHUNK_SIZE) {
+      chunks.push(json.slice(i, i + CHUNK_SIZE));
+    }
+
+    // Store chunks atomically
+    const ops = store.atomic();
+    ops.set(['cache', key, 'meta'], { chunks: chunks.length, timestamp: Date.now() });
+    for (let i = 0; i < chunks.length; i++) {
+      ops.set(['cache', key, 'chunk', i], chunks[i]);
+    }
+    await ops.commit();
+
+    console.log(`Cached ${key} (${chunks.length} chunks, ${json.length} bytes)`);
+  } catch (e) {
+    console.warn('Cache write error:', e);
+  }
 }
 
 const getWatchlist = (username: string) =>
@@ -79,7 +147,7 @@ export async function GET(request: NextRequest) {
 
     // Check cache first
     const cacheKey = `showtimes:${username}`;
-    const cached = getCached<any>(cacheKey);
+    const cached = await getCached<any>(cacheKey);
     if (cached) {
       const CACHE_SECONDS = 60 * 60; // 1 hour for HTTP cache too
       return NextResponse.json(cached, {
@@ -151,7 +219,7 @@ export async function GET(request: NextRequest) {
     const resp = await data.json();
 
     // Store in cache
-    setCache(cacheKey, resp);
+    await setCache(cacheKey, resp);
 
     const CACHE_SECONDS = 60 * 60; // 1 hour
 
