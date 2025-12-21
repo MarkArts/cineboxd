@@ -30,7 +30,7 @@ async function getCached<T>(key: string): Promise<T | null> {
 
   try {
     // Get metadata
-    const meta = await store.get<{ chunks: number; timestamp: number }>(['cache', key, 'meta']);
+    const meta = await store.get(['cache', key, 'meta']);
     if (!meta.value) return null;
 
     // Check TTL
@@ -50,7 +50,7 @@ async function getCached<T>(key: string): Promise<T | null> {
     // Fetch all chunks
     const chunks: string[] = [];
     for (let i = 0; i < meta.value.chunks; i++) {
-      const chunk = await store.get<string>(['cache', key, 'chunk', i]);
+      const chunk = await store.get(['cache', key, 'chunk', i]);
       if (!chunk.value) {
         console.warn(`Missing chunk ${i} for ${key}`);
         return null;
