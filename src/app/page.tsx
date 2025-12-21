@@ -70,20 +70,24 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
       }}
     >
       <div
+        className="movie-card-layout"
         style={{
           display: 'flex',
           gap: '16px'
         }}
       >
         {/* Poster */}
-        <div style={{
-          width: '200px',
-          height: '300px',
-          flexShrink: 0,
-          backgroundColor: '#2f3336',
-          borderRadius: '4px',
-          overflow: 'hidden'
-        }}>
+        <div
+          className="movie-poster"
+          style={{
+            width: '200px',
+            height: '300px',
+            flexShrink: 0,
+            backgroundColor: '#2f3336',
+            borderRadius: '4px',
+            overflow: 'hidden'
+          }}
+        >
           {film.poster?.url ? (
             <img
               src={film.poster.url}
@@ -112,7 +116,7 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
         </div>
 
         {/* Right side: Film Info + Theaters */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
+        <div className="movie-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
           {/* Film Info */}
           <div>
             <h3 style={{
@@ -141,14 +145,17 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
             </div>
 
             {/* Horizontal Date List */}
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              overflowX: 'auto',
-              paddingBottom: '12px',
-              marginBottom: '12px',
-              borderBottom: '1px solid #2f3336'
-            }}>
+            <div
+              className="date-list"
+              style={{
+                display: 'flex',
+                gap: '8px',
+                overflowX: 'auto',
+                paddingBottom: '12px',
+                marginBottom: '12px',
+                borderBottom: '1px solid #2f3336'
+              }}
+            >
               {Array.from(showsByDate.keys()).map((date) => {
                 const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-GB', {
                   weekday: 'short',
@@ -517,13 +524,16 @@ export default function Home() {
         top: 0,
         zIndex: 100
       }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '12px 16px',
-          gap: '12px',
-          flexWrap: 'wrap'
-        }}>
+        <div
+          className="header-controls"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px 16px',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}
+        >
           <h1 style={{
             margin: 0,
             fontSize: '20px',
@@ -533,7 +543,7 @@ export default function Home() {
             Cineboxd
           </h1>
 
-          <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="header-row" style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {/* Username Input */}
             <input
               type="text"
@@ -619,10 +629,11 @@ export default function Home() {
             </div>
 
             {/* Date Filters */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div className="date-filters" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '12px', color: '#71767b' }}>From:</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <input
+                  className="date-input"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
@@ -674,6 +685,7 @@ export default function Home() {
               <span style={{ fontSize: '12px', color: '#71767b' }}>To:</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <input
+                  className="date-input"
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
@@ -951,6 +963,46 @@ export default function Home() {
       <style jsx global>{`
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+          .header-controls {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+          }
+          .header-row {
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+          }
+          .movie-card-layout {
+            flex-direction: column !important;
+          }
+          .movie-poster {
+            width: 120px !important;
+            height: 180px !important;
+            margin: 0 auto !important;
+          }
+          .movie-content {
+            min-height: auto !important;
+          }
+          .date-list {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+          .date-list::-webkit-scrollbar {
+            display: none;
+          }
+          .date-filters {
+            flex-wrap: wrap !important;
+          }
+          .date-input {
+            min-width: 120px !important;
+            width: 120px !important;
+          }
         }
       `}</style>
     </div>
