@@ -151,6 +151,7 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
             }}>
               {Array.from(showsByDate.keys()).map((date) => {
                 const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-GB', {
+                  weekday: 'short',
                   day: 'numeric',
                   month: 'short'
                 });
@@ -376,7 +377,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchShowtimes();
-  }, []);
+  }, [username]);
 
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString('en-GB', {
@@ -549,22 +550,6 @@ export default function Home() {
                 width: '120px'
               }}
             />
-            <button
-              onClick={fetchShowtimes}
-              disabled={isLoading}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '4px',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                fontSize: '14px',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.5 : 1
-              }}
-            >
-              {isLoading ? 'Loading...' : 'Get Shows'}
-            </button>
 
             {/* Date Shortcuts */}
             <div style={{ display: 'flex', gap: '4px' }}>
