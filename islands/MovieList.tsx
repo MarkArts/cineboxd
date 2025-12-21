@@ -214,12 +214,15 @@ export default function MovieList({ listPath }: MovieListProps) {
       const response = await fetch(
         `/api/cineboxd?listPath=${encodeURIComponent(listPath.trim())}`,
       );
+      const data = await response.json();
+
       if (!response.ok) {
+        // Use error message from API if available
         throw new Error(
-          response.status === 500 ? "List not found" : "API error",
+          data?.error || `Failed to load list (HTTP ${response.status})`,
         );
       }
-      const data = await response.json();
+
       setShowtimes(data?.data?.showtimes?.data || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "An error occurred");
@@ -841,11 +844,42 @@ export default function MovieList({ listPath }: MovieListProps) {
           <div
             style={{
               textAlign: "center",
-              padding: "40px",
-              color: "#f4212e",
+              padding: "60px 40px",
             }}
           >
-            {error}
+            <div
+              style={{
+                fontSize: "3rem",
+                marginBottom: "16px",
+              }}
+            >
+              😕
+            </div>
+            <p
+              style={{
+                color: "#f4212e",
+                fontSize: "1.1rem",
+                marginBottom: "24px",
+              }}
+            >
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={() => fetchShowtimes()}
+              style={{
+                padding: "12px 24px",
+                fontSize: "14px",
+                fontWeight: "600",
+                backgroundColor: "#3b82f6",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+            >
+              Try Again
+            </button>
           </div>
         )}
 

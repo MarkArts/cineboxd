@@ -593,18 +593,69 @@ const fetchPatheShowtimes = async (
 //   "username/watchlist" - user's watchlist
 //   "username/list/my-favorites" - user's custom list
 //   "dave/list/official-top-250-narrative-feature-films" - IMDB top 250
-const getLetterboxdList = (listPath: string) =>
-  fetch(`https://letterboxd-list-radarr.onrender.com/${listPath}/`)
-    .then(
-      (r) => {
-        if (!r.ok) {
-          throw new Error(
-            `Failed to fetch Letterboxd list "${listPath}": ${r.status}`,
-          );
-        }
-        return r.json();
-      },
-    );
+// Includes retry logic for 503 errors (service waking up from cold start)
+const getLetterboxdList = async (
+  listPath: string,
+  maxRetries = 3,
+  delayMs = 2000,
+): Promise<unknown> => {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(
+        `https://letterboxd-list-radarr.onrender.com/${listPath}/`,
+      );
+
+      if (response.ok) {
+        return response.json();
+      }
+
+      // Retry on 503 (service unavailable / cold start)
+      if (response.status === 503 && attempt < maxRetries) {
+        console.log(
+          `Letterboxd service returned 503, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      // Other errors or final 503 attempt
+      if (response.status === 503) {
+        throw new Error(
+          "The Letterboxd service is temporarily unavailable. Please try again in a moment.",
+        );
+      } else if (response.status === 404) {
+        throw new Error(
+          `List not found: "${listPath}". Please check the URL or username.`,
+        );
+      } else {
+        throw new Error(
+          `Failed to fetch list "${listPath}" (HTTP ${response.status})`,
+        );
+      }
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+
+      // Network errors - retry
+      if (
+        attempt < maxRetries &&
+        !(e instanceof Error && e.message.includes("not found"))
+      ) {
+        console.log(
+          `Letterboxd fetch failed, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries}):`,
+          lastError.message,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      throw lastError;
+    }
+  }
+
+  throw lastError || new Error("Failed to fetch Letterboxd list");
+};
 
 type ProductionIds = {
   data: { films: { data: { id: string; title?: string }[] } };
