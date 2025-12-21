@@ -22,6 +22,7 @@ interface Show {
       city: string;
     };
   };
+  chain?: 'cineville' | 'pathe';
 }
 
 interface MovieCardProps {
@@ -244,37 +245,54 @@ function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: 
                       }}>
                         {data.shows
                           .sort((a: Show, b: Show) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-                          .map((show: Show) => (
-                            <a
-                              key={show.id}
-                              href={show.ticketingUrl || '#'}
-                              target={show.ticketingUrl ? "_blank" : "_self"}
-                              rel="noopener noreferrer"
-                              style={{
-                                padding: '4px 10px',
-                                backgroundColor: '#3b82f6',
-                                color: 'white',
-                                textDecoration: 'none',
-                                borderRadius: '4px',
-                                fontSize: '13px',
-                                fontWeight: '500',
-                                cursor: show.ticketingUrl ? 'pointer' : 'default',
-                                transition: 'background-color 0.2s'
-                              }}
-                              onMouseOver={(e) => {
-                                if (show.ticketingUrl) {
-                                  e.currentTarget.style.backgroundColor = '#2563eb';
-                                }
-                              }}
-                              onMouseOut={(e) => {
-                                if (show.ticketingUrl) {
-                                  e.currentTarget.style.backgroundColor = '#3b82f6';
-                                }
-                              }}
-                            >
-                              {formatTime(show.startDate)}
-                            </a>
-                          ))}
+                          .map((show: Show) => {
+                            const isPathe = show.chain === 'pathe';
+                            const bgColor = isPathe ? '#f59e0b' : '#3b82f6';
+                            const hoverColor = isPathe ? '#d97706' : '#2563eb';
+                            return (
+                              <a
+                                key={show.id}
+                                href={show.ticketingUrl || '#'}
+                                target={show.ticketingUrl ? "_blank" : "_self"}
+                                rel="noopener noreferrer"
+                                style={{
+                                  padding: '4px 10px',
+                                  backgroundColor: bgColor,
+                                  color: 'white',
+                                  textDecoration: 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '13px',
+                                  fontWeight: '500',
+                                  cursor: show.ticketingUrl ? 'pointer' : 'default',
+                                  transition: 'background-color 0.2s',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                onMouseOver={(e) => {
+                                  if (show.ticketingUrl) {
+                                    e.currentTarget.style.backgroundColor = hoverColor;
+                                  }
+                                }}
+                                onMouseOut={(e) => {
+                                  if (show.ticketingUrl) {
+                                    e.currentTarget.style.backgroundColor = bgColor;
+                                  }
+                                }}
+                              >
+                                {formatTime(show.startDate)}
+                                {show.chain && (
+                                  <span style={{
+                                    fontSize: '9px',
+                                    opacity: 0.8,
+                                    fontWeight: 'bold'
+                                  }}>
+                                    {isPathe ? 'P' : 'CV'}
+                                  </span>
+                                )}
+                              </a>
+                            );
+                          })}
                       </div>
                     </div>
                   </div>
