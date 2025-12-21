@@ -58,7 +58,7 @@ const EXAMPLE_LISTS = [
   },
   {
     title: "Sight & Sound 2025",
-    subtitle: "This week",
+    subtitle: "Next week",
     path: "filmjournl/list/sight-sound-2025",
     emoji: "🏆",
     getFilters: getNextWeekRange,
@@ -72,7 +72,7 @@ const EXAMPLE_LISTS = [
   },
   {
     title: "Top 250 Most Popular",
-    subtitle: "This week",
+    subtitle: "Next week",
     path: "jack/list/official-top-250-films-with-the-most-fans",
     emoji: "❤️",
     getFilters: getNextWeekRange,
