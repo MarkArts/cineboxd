@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// In-memory cache (1 hour TTL)
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
+const cache = new Map<string, { data: any; timestamp: number }>();
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (entry) {
+    const age = Date.now() - entry.timestamp;
+    if (age < CACHE_TTL_MS) {
+      console.log(`Cache HIT for ${key} (age: ${Math.round(age / 1000)}s)`);
+      return entry.data as T;
+    }
+    console.log(`Cache expired for ${key}`);
+    cache.delete(key);
+  }
+  return null;
+}
+
+function setCache<T>(key: string, data: T): void {
+  cache.set(key, { data, timestamp: Date.now() });
+  console.log(`Cached ${key}`);
+}
+
 const getWatchlist = (username: string) =>
   fetch(`https://letterboxd-list-radarr.onrender.com/${username}/watchlist/`).then(
     (r) => {
@@ -52,6 +76,22 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const username = (searchParams.get("username") || "105424").trim();
+
+    // Check cache first
+    const cacheKey = `showtimes:${username}`;
+    const cached = getCached<any>(cacheKey);
+    if (cached) {
+      const CACHE_SECONDS = 60 * 60; // 1 hour for HTTP cache too
+      return NextResponse.json(cached, {
+        status: 200,
+        headers: {
+          'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=60`,
+          'Surrogate-Control': `max-age=${CACHE_SECONDS}`,
+          'Vary': 'Accept-Encoding',
+          'X-Cache': 'HIT',
+        },
+      });
+    }
 
     const currentDate = new Date().toISOString();
 
@@ -110,14 +150,18 @@ export async function GET(request: NextRequest) {
 
     const resp = await data.json();
 
-    const CACHE_SECONDS = 60 * 10; // 10 minutes
-    
+    // Store in cache
+    setCache(cacheKey, resp);
+
+    const CACHE_SECONDS = 60 * 60; // 1 hour
+
     return NextResponse.json(resp, {
       status: 200,
       headers: {
         'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=60`,
         'Surrogate-Control': `max-age=${CACHE_SECONDS}`,
         'Vary': 'Accept-Encoding',
+        'X-Cache': 'MISS',
       },
     });
   } catch (error) {
