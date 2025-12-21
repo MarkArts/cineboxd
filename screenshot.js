@@ -1,4 +1,5 @@
-const { chromium } = require('playwright');
+import process from "node:process";
+const { chromium } = require("playwright");
 
 function showHelp() {
   console.log(`
@@ -24,7 +25,7 @@ Output:
   const arg = process.argv[2];
 
   // Show help if requested
-  if (arg === '--help') {
+  if (arg === "--help") {
     showHelp();
     process.exit(0);
   }
@@ -34,16 +35,16 @@ Output:
 
   if (!arg) {
     // Default to localhost:3003
-    url = 'http://localhost:3003';
-    filePrefix = '';
-  } else if (arg.startsWith('http://') || arg.startsWith('https://')) {
+    url = "http://localhost:3003";
+    filePrefix = "";
+  } else if (arg.startsWith("http://") || arg.startsWith("https://")) {
     // Full URL provided
     url = arg;
-    filePrefix = 'external-';
+    filePrefix = "external-";
   } else if (!isNaN(arg)) {
     // Port number provided
     url = `http://localhost:${arg}`;
-    filePrefix = '';
+    filePrefix = "";
   } else {
     console.error(`Error: Invalid argument '${arg}'`);
     showHelp();
@@ -55,28 +56,32 @@ Output:
 
   try {
     console.log(`Navigating to ${url}...`);
-    await page.goto(url, { waitUntil: 'networkidle' });
+    await page.goto(url, { waitUntil: "networkidle" });
 
     // Wait a bit longer for any dynamic content to load
     await page.waitForTimeout(1000);
 
-    console.log('Taking desktop screenshot...');
+    console.log("Taking desktop screenshot...");
     await page.screenshot({
       path: `${filePrefix}desktop-screenshot.png`,
-      fullPage: true
+      fullPage: true,
     });
 
-    console.log('Taking mobile screenshot...');
+    console.log("Taking mobile screenshot...");
     await page.setViewportSize({ width: 375, height: 812 });
     await page.screenshot({
       path: `${filePrefix}mobile-screenshot.png`,
-      fullPage: true
+      fullPage: true,
     });
 
-    console.log(`Screenshots saved: ${filePrefix}desktop-screenshot.png, ${filePrefix}mobile-screenshot.png`);
+    console.log(
+      `Screenshots saved: ${filePrefix}desktop-screenshot.png, ${filePrefix}mobile-screenshot.png`,
+    );
   } catch (error) {
-    console.error('Error taking screenshots:', error.message);
-    console.error('\nTip: Make sure the URL is accessible and the server is running.');
+    console.error("Error taking screenshots:", error.message);
+    console.error(
+      "\nTip: Make sure the URL is accessible and the server is running.",
+    );
     showHelp();
     process.exit(1);
   } finally {

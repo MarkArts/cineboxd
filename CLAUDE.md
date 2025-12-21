@@ -2,7 +2,9 @@
 
 ## Overview
 
-Cineboxd is a movie showtime finder that connects to Letterboxd watchlists. Users enter their Letterboxd username to see cinema showtimes for movies on their watchlist in Dutch theaters (Cineville + Pathé).
+Cineboxd is a movie showtime finder that connects to Letterboxd watchlists.
+Users enter their Letterboxd username to see cinema showtimes for movies on
+their watchlist in Dutch theaters (Cineville + Pathé).
 
 ## Tech Stack
 
@@ -41,9 +43,12 @@ deno.json                 # Deno configuration
 
 ## Key Components
 
-**MovieList Island** - Main container with all filtering logic, state management, and API fetching.
+**MovieList Island** - Main container with all filtering logic, state
+management, and API fetching.
 
-**MovieCard Island** - Displays film poster (200x300), title, director, duration, date selector, and theater showtimes. Each card manages its own selected date state.
+**MovieCard Island** - Displays film poster (200x300), title, director,
+duration, date selector, and theater showtimes. Each card manages its own
+selected date state.
 
 ## Features
 
@@ -70,6 +75,8 @@ Returns showtimes for films on the user's Letterboxd watchlist.
 
 ## Common Issues
 
-**Hydration Errors**: Occur when server/client render differently. Use `IS_BROWSER` from `$fresh/runtime.ts` for client-only code.
+**Hydration Errors**: Occur when server/client render differently. Use
+`IS_BROWSER` from `$fresh/runtime.ts` for client-only code.
 
-**Preact Hooks**: Import from `preact/hooks`, not `react`. Use `onInput` instead of `onChange` for input events.
+**Preact Hooks**: Import from `preact/hooks`, not `react`. Use `onInput` instead
+of `onChange` for input events.

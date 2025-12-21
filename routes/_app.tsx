@@ -7,8 +7,12 @@ export default function App({ Component }: PageProps) {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Cineboxd</title>
-        <meta name="description" content="Find showtimes for movies on your Letterboxd watchlist" />
-        <style>{`
+        <meta
+          name="description"
+          content="Find showtimes for movies on your Letterboxd watchlist"
+        />
+        <style>
+          {`
           * {
             box-sizing: border-box;
           }
@@ -18,6 +22,102 @@ export default function App({ Component }: PageProps) {
             background-color: #0f1419;
             color: #e1e8ed;
             font-family: system-ui, -apple-system, sans-serif;
+          }
+
+          /* Bokeh animation for home page */
+          @keyframes float {
+            0%, 100% {
+              transform: translateY(0) scale(1);
+              opacity: 0.3;
+            }
+            50% {
+              transform: translateY(-30px) scale(1.1);
+              opacity: 0.5;
+            }
+          }
+          @keyframes drift {
+            0%, 100% {
+              transform: translateX(0) translateY(0);
+            }
+            25% {
+              transform: translateX(20px) translateY(-15px);
+            }
+            50% {
+              transform: translateX(-10px) translateY(-25px);
+            }
+            75% {
+              transform: translateX(-20px) translateY(-10px);
+            }
+          }
+          .bokeh-circle {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.3;
+          }
+          .bokeh-1 {
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.6) 0%, transparent 70%);
+            top: 10%;
+            left: 10%;
+            animation: float 8s ease-in-out infinite;
+          }
+          .bokeh-2 {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.5) 0%, transparent 70%);
+            top: 60%;
+            right: 15%;
+            animation: float 10s ease-in-out infinite 1s;
+          }
+          .bokeh-3 {
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.4) 0%, transparent 70%);
+            bottom: 20%;
+            left: 20%;
+            animation: drift 12s ease-in-out infinite;
+          }
+          .bokeh-4 {
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, transparent 70%);
+            top: 30%;
+            right: 25%;
+            animation: float 9s ease-in-out infinite 2s;
+          }
+          .bokeh-5 {
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+            bottom: 30%;
+            right: 10%;
+            animation: drift 11s ease-in-out infinite 1.5s;
+          }
+          .bokeh-6 {
+            width: 220px;
+            height: 220px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.35) 0%, transparent 70%);
+            top: 5%;
+            right: 5%;
+            animation: float 13s ease-in-out infinite 0.5s;
+          }
+          .bokeh-7 {
+            width: 160px;
+            height: 160px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.45) 0%, transparent 70%);
+            bottom: 10%;
+            left: 5%;
+            animation: drift 10s ease-in-out infinite 3s;
+          }
+          .bokeh-8 {
+            width: 280px;
+            height: 280px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+            top: 50%;
+            left: 40%;
+            animation: float 14s ease-in-out infinite 2.5s;
           }
           @media (max-width: 768px) {
             .header-controls {
@@ -58,7 +158,8 @@ export default function App({ Component }: PageProps) {
               width: 120px !important;
             }
           }
-        `}</style>
+        `}
+        </style>
       </head>
       <body>
         <Component />

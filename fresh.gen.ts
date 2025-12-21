@@ -2,20 +2,24 @@
 // This file SHOULD be checked into source version control.
 // This file is automatically updated during development when running `dev.ts`.
 
+import * as $_username_index from "./routes/[username]/index.tsx";
 import * as $_app from "./routes/_app.tsx";
 import * as $api_cineboxd from "./routes/api/cineboxd.ts";
 import * as $index from "./routes/index.tsx";
+import * as $HomePage from "./islands/HomePage.tsx";
 import * as $MovieCard from "./islands/MovieCard.tsx";
 import * as $MovieList from "./islands/MovieList.tsx";
 import { type Manifest } from "$fresh/server.ts";
 
 const manifest = {
   routes: {
+    "./routes/[username]/index.tsx": $_username_index,
     "./routes/_app.tsx": $_app,
     "./routes/api/cineboxd.ts": $api_cineboxd,
     "./routes/index.tsx": $index,
   },
   islands: {
+    "./islands/HomePage.tsx": $HomePage,
     "./islands/MovieCard.tsx": $MovieCard,
     "./islands/MovieList.tsx": $MovieList,
   },
