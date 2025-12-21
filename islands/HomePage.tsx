@@ -1,4 +1,5 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
+import { IS_BROWSER } from "$fresh/runtime.ts";
 
 // Parse Letterboxd URL or path to get the list path
 // Handles:
@@ -58,6 +59,20 @@ const EXAMPLE_LISTS = [
 export default function HomePage() {
   const [input, setInput] = useState("");
   const [isNavigating, setIsNavigating] = useState(false);
+
+  // Reset navigating state when page is restored from bfcache (back button)
+  useEffect(() => {
+    if (!IS_BROWSER) return;
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setIsNavigating(false);
+      }
+    };
+
+    globalThis.addEventListener("pageshow", handlePageShow);
+    return () => globalThis.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
