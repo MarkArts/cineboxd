@@ -5,9 +5,10 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const CHUNK_SIZE = 60000; // 60KB chunks (under 64KB limit)
 
 // Deno KV singleton
-let kv: Deno.Kv | null = null;
+// @ts-ignore - Deno types not available in Next.js build
+let kv: any = null;
 
-async function getKv(): Promise<Deno.Kv | null> {
+async function getKv(): Promise<any> {
   if (kv) return kv;
   try {
     // @ts-ignore - Deno global
