@@ -1,39 +1,53 @@
 # Cineboxd Project Documentation
 
-## App Summary & Learnings
+## Overview
 
-**Goal**: Cineboxd is a movie showtime finder that connects to Letterboxd watchlists. Users enter their Letterboxd username to see cinema showtimes for movies on their watchlist in Dutch theaters.
+Cineboxd is a movie showtime finder that connects to Letterboxd watchlists. Users enter their Letterboxd username to see cinema showtimes for movies on their watchlist in Dutch theaters.
 
-**Key Features**:
-- Fetches user's Letterboxd watchlist via API (`/api/cineboxd?username=X`)
-- Shows movie cards with posters, directors, duration
-- Displays showtimes grouped by theater and date
-- Filtering by cities, theaters, films, and date ranges
-- Expandable movie cards showing detailed showtimes
+## Tech Stack
 
-**Tech Stack**:
 - Next.js 15 with React 19
-- Tailwind CSS v4 (new syntax)
 - TypeScript
-- Deno runtime (`deno run dev` to start)
+- Deno runtime
+- Inline styles (no CSS framework)
 
-**Key Learnings**:
-1. **Tailwind v4 syntax** - Uses `@tailwindcss/postcss` instead of regular Tailwind, can't use `@apply` directives
-2. **Component structure** - MovieCard component handles poster display and showtime expansion
-3. **API integration** - TMDB API for missing posters, custom backend for Letterboxd data
-4. **State management** - URL params sync, debounced username input, filter state
+## Development Commands
 
-**How to run**: `deno run dev` (runs on port 3003 if 3000 is taken)
+```bash
+deno run dev                          # Start development server (port 3000)
+node screenshot.js                    # Take desktop/mobile screenshots of localhost:3000
+node screenshot.js 3000               # Take screenshots on specific port
+node screenshot.js https://url.com    # Take screenshots of external site
+node screenshot.js --help             # Show screenshot help
+```
 
-**Testing**: `node screenshot.js` - Takes desktop and mobile screenshots for visual verification
+## Project Structure
 
-**Main Issues Encountered**:
-- Tailwind v4 compilation issues when using `@apply` directives
-- Image overflow and sizing problems
-- Low contrast accessibility issues
-- Component styling inconsistencies
+- `/src/app/page.tsx` - Main page component with all UI logic
+- `/src/app/layout.tsx` - Root layout
+- `/api/cineboxd` - API endpoint for fetching Letterboxd watchlist data
 
-**Development Commands**:
-- `deno run dev` - Start development server
-- `node screenshot.js` - Take screenshots for testing
-- `deno task build` - Build for production (if available)
+## Key Components
+
+**MovieCard** - Displays film poster (160x240), title, director, duration, date selector, and theater showtimes. Each card manages its own selected date state.
+
+## Features
+
+- Fetches user's Letterboxd watchlist via API (`/api/cineboxd?username=X`)
+- Movie cards with large posters, film info, and showtimes
+- Horizontal date selector per movie card
+- Theater locations with time slots for selected date
+- Filtering by cities, theaters, films, and date ranges
+- URL state synchronization
+- Click-outside to close filter dropdowns
+
+## Common Issues
+
+**Hydration Errors**: Occur when server/client render differently. Avoid:
+- `typeof window` checks in render
+- Browser APIs (localStorage, Date.now()) during render
+- Random values during render
+
+Fix by moving client-only code to `useEffect` hooks.
+
+**React Hooks Rules**: Never call hooks inside loops, conditions, or callbacks. Extract into separate components if needed.
