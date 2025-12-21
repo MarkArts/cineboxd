@@ -588,13 +588,18 @@ const fetchPatheShowtimes = async (
 
 // ============ Letterboxd & Cineville Functions ============
 
-const getWatchlist = (username: string) =>
-  fetch(`https://letterboxd-list-radarr.onrender.com/${username}/watchlist/`)
+// Fetch any Letterboxd list (watchlist, custom list, etc.)
+// listPath examples:
+//   "username/watchlist" - user's watchlist
+//   "username/list/my-favorites" - user's custom list
+//   "dave/list/official-top-250-narrative-feature-films" - IMDB top 250
+const getLetterboxdList = (listPath: string) =>
+  fetch(`https://letterboxd-list-radarr.onrender.com/${listPath}/`)
     .then(
       (r) => {
         if (!r.ok) {
           throw new Error(
-            `Failed to fetch watchlist for ${username}: ${r.status}`,
+            `Failed to fetch Letterboxd list "${listPath}": ${r.status}`,
           );
         }
         return r.json();
@@ -782,10 +787,23 @@ export const handler: Handlers = {
   async GET(req) {
     try {
       const url = new URL(req.url);
-      const username = (url.searchParams.get("username") || "105424").trim();
+      // Support both old 'username' param (for backwards compat) and new 'listPath' param
+      const listPathParam = url.searchParams.get("listPath");
+      const usernameParam = url.searchParams.get("username");
 
-      // Check cache first (v9 with 24h cache + Cineville TMDB enrichment)
-      const cacheKey = `showtimes:v9:${username}`;
+      // Determine the list path to fetch
+      let listPath: string;
+      if (listPathParam) {
+        listPath = listPathParam.trim();
+      } else if (usernameParam) {
+        // Backwards compatibility: username param becomes username/watchlist
+        listPath = `${usernameParam.trim()}/watchlist`;
+      } else {
+        listPath = "105424/watchlist"; // Default
+      }
+
+      // Check cache first (v10 with list path support)
+      const cacheKey = `showtimes:v10:${listPath}`;
       const cached = await getCached<Record<string, unknown>>(cacheKey);
       if (cached) {
         const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
@@ -802,18 +820,20 @@ export const handler: Handlers = {
         });
       }
 
-      // Fetch watchlist first
-      const watchlist = (await getWatchlist(username)) as { title: string }[];
-      const watchlistTitles = watchlist.map((x) => x.title);
+      // Fetch Letterboxd list
+      const listData = (await getLetterboxdList(listPath)) as {
+        title: string;
+      }[];
+      const filmTitles = listData.map((x) => x.title);
 
       console.log(
-        `Fetching showtimes for ${watchlistTitles.length} films from watchlist`,
+        `Fetching showtimes for ${filmTitles.length} films from "${listPath}"`,
       );
 
       // Fetch from both sources in parallel with graceful degradation
       const [cinevilleResult, patheResult] = await Promise.allSettled([
-        fetchCinevilleShowtimes(watchlistTitles),
-        fetchPatheShowtimes(watchlistTitles),
+        fetchCinevilleShowtimes(filmTitles),
+        fetchPatheShowtimes(filmTitles),
       ]);
 
       // Extract results, defaulting to empty arrays on failure

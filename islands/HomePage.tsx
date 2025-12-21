@@ -1,14 +1,70 @@
 import { useState } from "preact/hooks";
 
+// Parse Letterboxd URL or path to get the list path
+// Handles:
+// - Full URLs: https://letterboxd.com/username/watchlist/
+// - Full URLs: https://letterboxd.com/dave/list/official-top-250-narrative-feature-films/
+// - Paths: username/watchlist
+// - Paths: dave/list/official-top-250-narrative-feature-films
+// - Just username: username (converts to username/watchlist)
+function parseLetterboxdInput(input: string): string {
+  const trimmed = input.trim();
+
+  // Remove letterboxd.com prefix if present
+  let path = trimmed
+    .replace(/^https?:\/\/(www\.)?letterboxd\.com\/?/, "")
+    .replace(/\/$/, ""); // Remove trailing slash
+
+  // If it's just a username (no slashes), assume watchlist
+  if (!path.includes("/")) {
+    path = `${path}/watchlist`;
+  }
+
+  return path;
+}
+
+// Example lists to showcase
+const EXAMPLE_LISTS = [
+  {
+    title: "IMDB Top 250",
+    subtitle: "Classic masterpieces playing near you",
+    path: "dave/list/official-top-250-narrative-feature-films",
+    emoji: "🏆",
+    filters: "",
+  },
+  {
+    title: "A24 Films",
+    subtitle: "Indie darlings and arthouse hits",
+    path: "gubarenko/list/a24-films-ranked",
+    emoji: "🎬",
+    filters: "",
+  },
+  {
+    title: "Oscar Winners",
+    subtitle: "Academy Award Best Picture winners",
+    path: "darrencb/list/academy-award-best-picture-winners",
+    emoji: "🏅",
+    filters: "",
+  },
+  {
+    title: "Studio Ghibli",
+    subtitle: "Magical animated adventures",
+    path: "letterboxd/list/official-ranking-studio-ghibli",
+    emoji: "🌸",
+    filters: "",
+  },
+];
+
 export default function HomePage() {
-  const [username, setUsername] = useState("");
+  const [input, setInput] = useState("");
   const [isNavigating, setIsNavigating] = useState(false);
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
-    if (username.trim()) {
+    const path = parseLetterboxdInput(input);
+    if (path) {
       setIsNavigating(true);
-      globalThis.location.href = `/${encodeURIComponent(username.trim())}/`;
+      globalThis.location.href = `/${path}/`;
     }
   };
 
@@ -16,6 +72,12 @@ export default function HomePage() {
     if (e.key === "Enter") {
       handleSubmit(e);
     }
+  };
+
+  const navigateToExample = (path: string, filters: string) => {
+    setIsNavigating(true);
+    const url = filters ? `/${path}/?${filters}` : `/${path}/`;
+    globalThis.location.href = url;
   };
 
   return (
@@ -40,7 +102,6 @@ export default function HomePage() {
           pointerEvents: "none",
         }}
       >
-        {/* Bokeh circles */}
         <div class="bokeh-circle bokeh-1" />
         <div class="bokeh-circle bokeh-2" />
         <div class="bokeh-circle bokeh-3" />
@@ -58,7 +119,7 @@ export default function HomePage() {
           zIndex: 1,
           textAlign: "center",
           padding: "20px",
-          maxWidth: "500px",
+          maxWidth: "600px",
           width: "100%",
         }}
       >
@@ -85,11 +146,11 @@ export default function HomePage() {
           style={{
             fontSize: "1.1rem",
             color: "#9ca3af",
-            margin: "0 0 40px 0",
+            margin: "0 0 32px 0",
             lineHeight: 1.6,
           }}
         >
-          Find showtimes for your Letterboxd watchlist
+          Find showtimes for any Letterboxd list
           <br />
           in Dutch cinemas
         </p>
@@ -106,14 +167,14 @@ export default function HomePage() {
           >
             <input
               type="text"
-              value={username}
-              onInput={(e) => setUsername((e.target as HTMLInputElement).value)}
+              value={input}
+              onInput={(e) => setInput((e.target as HTMLInputElement).value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter your Letterboxd username"
+              placeholder="Username, list URL, or letterboxd.com/..."
               disabled={isNavigating}
               style={{
                 width: "100%",
-                maxWidth: "320px",
+                maxWidth: "400px",
                 padding: "14px 20px",
                 fontSize: "16px",
                 backgroundColor: "#1e293b",
@@ -136,36 +197,36 @@ export default function HomePage() {
 
             <button
               type="submit"
-              disabled={!username.trim() || isNavigating}
+              disabled={!input.trim() || isNavigating}
               style={{
                 padding: "14px 48px",
                 fontSize: "16px",
                 fontWeight: "600",
-                backgroundColor: username.trim() && !isNavigating
+                backgroundColor: input.trim() && !isNavigating
                   ? "#3b82f6"
                   : "#374151",
-                color: username.trim() && !isNavigating ? "white" : "#6b7280",
+                color: input.trim() && !isNavigating ? "white" : "#6b7280",
                 border: "none",
                 borderRadius: "12px",
-                cursor: username.trim() && !isNavigating
+                cursor: input.trim() && !isNavigating
                   ? "pointer"
                   : "not-allowed",
                 transition: "background-color 0.2s, transform 0.1s",
               }}
               onMouseOver={(e) => {
-                if (username.trim() && !isNavigating) {
+                if (input.trim() && !isNavigating) {
                   (e.target as HTMLButtonElement).style.backgroundColor =
                     "#2563eb";
                 }
               }}
               onMouseOut={(e) => {
-                if (username.trim() && !isNavigating) {
+                if (input.trim() && !isNavigating) {
                   (e.target as HTMLButtonElement).style.backgroundColor =
                     "#3b82f6";
                 }
               }}
               onMouseDown={(e) => {
-                if (username.trim() && !isNavigating) {
+                if (input.trim() && !isNavigating) {
                   (e.target as HTMLButtonElement).style.transform =
                     "scale(0.98)";
                 }
@@ -179,15 +240,107 @@ export default function HomePage() {
           </div>
         </form>
 
+        {/* Example Lists */}
+        <div style={{ marginTop: "48px" }}>
+          <p
+            style={{
+              fontSize: "0.9rem",
+              color: "#6b7280",
+              marginBottom: "16px",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Or try a popular list
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: "12px",
+              maxWidth: "500px",
+              margin: "0 auto",
+            }}
+          >
+            {EXAMPLE_LISTS.map((example) => (
+              <button
+                type="button"
+                key={example.path}
+                onClick={() => navigateToExample(example.path, example.filters)}
+                disabled={isNavigating}
+                style={{
+                  padding: "16px",
+                  backgroundColor: "#1e293b",
+                  border: "1px solid #374151",
+                  borderRadius: "12px",
+                  cursor: isNavigating ? "wait" : "pointer",
+                  textAlign: "left",
+                  transition: "all 0.2s",
+                }}
+                onMouseOver={(e) => {
+                  if (!isNavigating) {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor =
+                      "#3b82f6";
+                    (e.currentTarget as HTMLButtonElement).style
+                      .backgroundColor = "#253548";
+                  }
+                }}
+                onMouseOut={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "#374151";
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                    "#1e293b";
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <span style={{ fontSize: "1.5rem" }}>{example.emoji}</span>
+                  <div>
+                    <div
+                      style={{
+                        color: "#e1e8ed",
+                        fontWeight: "600",
+                        fontSize: "0.95rem",
+                      }}
+                    >
+                      {example.title}
+                    </div>
+                    <div
+                      style={{
+                        color: "#71767b",
+                        fontSize: "0.8rem",
+                        marginTop: "2px",
+                      }}
+                    >
+                      {example.subtitle}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Footer hint */}
         <p
           style={{
-            marginTop: "48px",
-            fontSize: "0.85rem",
-            color: "#6b7280",
+            marginTop: "40px",
+            fontSize: "0.8rem",
+            color: "#4b5563",
           }}
         >
-          Powered by Cineville & Pathe showtimes
+          Works with any public Letterboxd list, watchlist, or username
+        </p>
+        <p
+          style={{
+            marginTop: "8px",
+            fontSize: "0.75rem",
+            color: "#374151",
+          }}
+        >
+          Powered by Cineville & Pathe
         </p>
       </div>
     </div>

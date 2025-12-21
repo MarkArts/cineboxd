@@ -22,11 +22,25 @@ interface Show {
 }
 
 interface MovieListProps {
-  initialUsername: string;
+  listPath: string;
 }
 
-export default function MovieList({ initialUsername }: MovieListProps) {
-  const [username] = useState(initialUsername);
+// Format list path for display
+// "username/watchlist" -> "@username's watchlist"
+// "username/list/my-list" -> "@username/my-list"
+// "dave/list/official-top-250" -> "@dave/official-top-250"
+function formatListName(listPath: string): string {
+  const parts = listPath.split("/");
+  if (parts.length >= 2 && parts[1] === "watchlist") {
+    return `@${parts[0]}'s watchlist`;
+  }
+  if (parts.length >= 3 && parts[1] === "list") {
+    return `@${parts[0]}/${parts.slice(2).join("/")}`;
+  }
+  return listPath;
+}
+
+export default function MovieList({ listPath }: MovieListProps) {
   const [showtimes, setShowtimes] = useState<Show[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,15 +120,17 @@ export default function MovieList({ initialUsername }: MovieListProps) {
   }, [startDate, endDate, selectedCities, selectedTheaters, selectedFilms]);
 
   const fetchShowtimes = async () => {
-    if (!username.trim()) return;
+    if (!listPath.trim()) return;
 
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/cineboxd?username=${username.trim()}`);
+      const response = await fetch(
+        `/api/cineboxd?listPath=${encodeURIComponent(listPath.trim())}`,
+      );
       if (!response.ok) {
         throw new Error(
-          response.status === 500 ? "User not found" : "API error",
+          response.status === 500 ? "List not found" : "API error",
         );
       }
       const data = await response.json();
@@ -131,7 +147,7 @@ export default function MovieList({ initialUsername }: MovieListProps) {
     if (IS_BROWSER) {
       fetchShowtimes();
     }
-  }, [username]);
+  }, [listPath]);
 
   // Extract unique filter options
   const { uniqueCities, uniqueTheaters, uniqueFilms, filteredTheaters } =
@@ -348,7 +364,7 @@ export default function MovieList({ initialUsername }: MovieListProps) {
             </a>
             <span style={{ color: "#71767b", fontSize: "14px" }}>·</span>
             <span style={{ color: "#e1e8ed", fontSize: "14px" }}>
-              @{username}
+              {formatListName(listPath)}
             </span>
           </div>
 
