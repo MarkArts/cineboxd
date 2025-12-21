@@ -1,6 +1,6 @@
-'use client';
-
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from "preact/hooks";
+import { IS_BROWSER } from "$fresh/runtime.ts";
+import MovieCard from "./MovieCard.tsx";
 
 interface Show {
   id: string;
@@ -10,302 +10,18 @@ interface Show {
   film: {
     title: string;
     slug: string;
-    poster?: {
-      url: string;
-    };
+    poster?: { url: string };
     duration: number;
     directors: string[];
   };
   theater: {
     name: string;
-    address?: {
-      city: string;
-    };
+    address?: { city: string };
   };
   chain?: 'cineville' | 'pathe';
 }
 
-interface MovieCardProps {
-  film: {
-    title: string;
-    slug: string;
-    poster?: { url: string };
-    duration: number;
-    directors: string[];
-  };
-  showsByDateAndTheater: Map<string, any>;
-  formatTime: (dateString: string) => string;
-  formatDuration: (minutes: number) => string;
-}
-
-function MovieCard({ film, showsByDateAndTheater, formatTime, formatDuration }: MovieCardProps) {
-  const sortedEntries = Array.from(showsByDateAndTheater.entries()).sort((a, b) => {
-    const dateA = a[1].date;
-    const dateB = b[1].date;
-    if (dateA !== dateB) return dateA.localeCompare(dateB);
-    return a[1].theater.name.localeCompare(b[1].theater.name);
-  });
-
-  // Group shows by date for the horizontal date list
-  const showsByDate = new Map<string, Map<string, any>>();
-  sortedEntries.forEach(([key, data]) => {
-    const date = data.date;
-    if (!showsByDate.has(date)) {
-      showsByDate.set(date, new Map());
-    }
-    showsByDate.get(date)!.set(data.theater.name, data);
-  });
-
-  const [selectedDate, setSelectedDate] = useState<string>(
-    showsByDate.size > 0 ? Array.from(showsByDate.keys())[0] : ''
-  );
-
-  return (
-    <article
-      style={{
-        backgroundColor: '#1e293b',
-        borderRadius: '8px',
-        border: '1px solid #2f3336',
-        overflow: 'hidden',
-        padding: '16px'
-      }}
-    >
-      <div
-        className="movie-card-layout"
-        style={{
-          display: 'flex',
-          gap: '16px'
-        }}
-      >
-        {/* Poster */}
-        <div
-          className="movie-poster"
-          style={{
-            width: '200px',
-            height: '300px',
-            flexShrink: 0,
-            backgroundColor: '#2f3336',
-            borderRadius: '4px',
-            overflow: 'hidden'
-          }}
-        >
-          {film.poster?.url ? (
-            <img
-              src={film.poster.url}
-              alt={film.title}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-            />
-          ) : (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              color: '#71767b',
-              textAlign: 'center',
-              padding: '8px'
-            }}>
-              {film.title.substring(0, 20)}
-            </div>
-          )}
-        </div>
-
-        {/* Right side: Film Info + Theaters */}
-        <div className="movie-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
-          {/* Film Info */}
-          <div>
-            <h3 style={{
-              margin: '0 0 8px 0',
-              fontSize: '20px',
-              fontWeight: 'bold',
-              color: '#e1e8ed'
-            }}>
-              {film.title}
-            </h3>
-
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '16px',
-              marginBottom: '12px',
-              fontSize: '14px',
-              color: '#71767b'
-            }}>
-              {film.directors.length > 0 && (
-                <span>Directed by {film.directors.join(', ')}</span>
-              )}
-              {film.duration && (
-                <span>{formatDuration(film.duration)}</span>
-              )}
-            </div>
-
-            {/* Horizontal Date List */}
-            <div
-              className="date-list"
-              style={{
-                display: 'flex',
-                gap: '8px',
-                overflowX: 'auto',
-                paddingBottom: '12px',
-                marginBottom: '12px',
-                borderBottom: '1px solid #2f3336'
-              }}
-            >
-              {Array.from(showsByDate.keys()).map((date) => {
-                const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('en-GB', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short'
-                });
-                const isSelected = date === selectedDate;
-
-                return (
-                  <button
-                    key={date}
-                    onClick={() => setSelectedDate(date)}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: isSelected ? '#3b82f6' : '#0f1419',
-                      color: isSelected ? 'white' : '#e1e8ed',
-                      border: `1px solid ${isSelected ? '#3b82f6' : '#2f3336'}`,
-                      borderRadius: '4px',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = '#2f3336';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = '#0f1419';
-                      }
-                    }}
-                  >
-                    {dateStr}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Theater Locations for Selected Date */}
-          {selectedDate && showsByDate.get(selectedDate) && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              maxHeight: '220px',
-              overflowY: 'auto'
-            }}>
-              {Array.from(showsByDate.get(selectedDate)!.values())
-                .sort((a, b) => a.theater.name.localeCompare(b.theater.name))
-                .map((data) => (
-                  <div key={data.theater.name} style={{
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'flex-start',
-                    padding: '8px',
-                    backgroundColor: '#0f1419',
-                    borderRadius: '6px'
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        color: '#e1e8ed',
-                        marginBottom: '4px'
-                      }}>
-                        {data.theater.name}
-                        {data.theater.address?.city && (
-                          <span style={{
-                            fontSize: '12px',
-                            color: '#71767b',
-                            fontWeight: 'normal',
-                            marginLeft: '8px'
-                          }}>
-                            • {data.theater.address.city}
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '6px'
-                      }}>
-                        {data.shows
-                          .sort((a: Show, b: Show) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-                          .map((show: Show) => {
-                            const isPathe = show.chain === 'pathe';
-                            const bgColor = isPathe ? '#f59e0b' : '#3b82f6';
-                            const hoverColor = isPathe ? '#d97706' : '#2563eb';
-                            return (
-                              <a
-                                key={show.id}
-                                href={show.ticketingUrl || '#'}
-                                target={show.ticketingUrl ? "_blank" : "_self"}
-                                rel="noopener noreferrer"
-                                style={{
-                                  padding: '4px 10px',
-                                  backgroundColor: bgColor,
-                                  color: 'white',
-                                  textDecoration: 'none',
-                                  borderRadius: '4px',
-                                  fontSize: '13px',
-                                  fontWeight: '500',
-                                  cursor: show.ticketingUrl ? 'pointer' : 'default',
-                                  transition: 'background-color 0.2s',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px'
-                                }}
-                                onMouseOver={(e) => {
-                                  if (show.ticketingUrl) {
-                                    e.currentTarget.style.backgroundColor = hoverColor;
-                                  }
-                                }}
-                                onMouseOut={(e) => {
-                                  if (show.ticketingUrl) {
-                                    e.currentTarget.style.backgroundColor = bgColor;
-                                  }
-                                }}
-                              >
-                                {formatTime(show.startDate)}
-                                {show.chain && (
-                                  <span style={{
-                                    fontSize: '9px',
-                                    opacity: 0.8,
-                                    fontWeight: 'bold'
-                                  }}>
-                                    {isPathe ? 'P' : 'CV'}
-                                  </span>
-                                )}
-                              </a>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-export default function Home() {
+export default function MovieList() {
   const [username, setUsername] = useState('105424');
   const [showtimes, setShowtimes] = useState<Show[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -322,6 +38,8 @@ export default function Home() {
 
   // Initialize from URL params on mount (client-side only)
   useEffect(() => {
+    if (!IS_BROWSER) return;
+
     const params = new URLSearchParams(window.location.search);
     const urlUsername = params.get('username');
     const urlStartDate = params.get('startDate');
@@ -340,10 +58,10 @@ export default function Home() {
 
   // Handle click outside to close dropdowns
   useEffect(() => {
+    if (!IS_BROWSER) return;
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-
-      // Check if click is outside all dropdown areas
       if (!target.closest('[data-dropdown]')) {
         setShowCityFilter(false);
         setShowMovieFilter(false);
@@ -357,10 +75,9 @@ export default function Home() {
     }
   }, [showCityFilter, showMovieFilter, showTheaterFilter]);
 
-
   // URL synchronization
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!IS_BROWSER) return;
 
     const params = new URLSearchParams();
     if (username && username !== '105424') params.set('username', username);
@@ -375,8 +92,8 @@ export default function Home() {
 
     try {
       window.history.replaceState({ path: newUrl }, '', newUrl);
-    } catch (e) {
-      console.warn("Could not update URL");
+    } catch {
+      // Ignore URL update errors
     }
   }, [username, startDate, endDate, selectedCities, selectedTheaters, selectedFilms]);
 
@@ -401,28 +118,15 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchShowtimes();
+    if (IS_BROWSER) {
+      fetchShowtimes();
+    }
   }, [username]);
-
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  };
-
-  const formatDuration = (minutes: number) => {
-    if (!minutes) return '';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
-  };
 
   // Extract unique filter options
   const { uniqueCities, uniqueTheaters, uniqueFilms, filteredTheaters } = useMemo(() => {
-    const theatersMap = new Map();
-    const filmsMap = new Map();
+    const theatersMap = new Map<string, Show['theater']>();
+    const filmsMap = new Map<string, Show['film']>();
 
     showtimes.forEach(show => {
       if (show.theater && !theatersMap.has(show.theater.name)) {
@@ -467,7 +171,7 @@ export default function Home() {
         setSelectedTheaters(validTheaters);
       }
     }
-  }, [selectedCities]);
+  }, [selectedCities, selectedTheaters, uniqueTheaters]);
 
   // Filter showtimes based on selected filters
   const filteredShowtimes = useMemo(() => {
@@ -493,47 +197,67 @@ export default function Home() {
   }, [showtimes, startDate, endDate, selectedTheaters, selectedFilms, selectedCities]);
 
   const groupedFilms = useMemo(() => {
-    const films = filteredShowtimes.reduce((acc, show) => {
-      if (!acc[show.film.slug]) {
-        acc[show.film.slug] = {
+    const films: Record<string, {
+      film: Show['film'];
+      shows: Show[];
+      showsByDateAndTheater: Map<string, {
+        date: string;
+        theater: Show['theater'];
+        shows: Show[];
+      }>;
+    }> = {};
+
+    filteredShowtimes.forEach(show => {
+      if (!films[show.film.slug]) {
+        films[show.film.slug] = {
           film: show.film,
           shows: [],
           showsByDateAndTheater: new Map()
         };
       }
-      acc[show.film.slug].shows.push(show);
+      films[show.film.slug].shows.push(show);
 
       // Group shows by date and theater
       const showDate = show.startDate.split('T')[0];
       const key = `${showDate}_${show.theater.name}`;
-      if (!acc[show.film.slug].showsByDateAndTheater.has(key)) {
-        acc[show.film.slug].showsByDateAndTheater.set(key, {
+      if (!films[show.film.slug].showsByDateAndTheater.has(key)) {
+        films[show.film.slug].showsByDateAndTheater.set(key, {
           date: showDate,
           theater: show.theater,
           shows: []
         });
       }
-      acc[show.film.slug].showsByDateAndTheater.get(key)!.shows.push(show);
-
-      return acc;
-    }, {} as Record<string, any>);
+      films[show.film.slug].showsByDateAndTheater.get(key)!.shows.push(show);
+    });
 
     return Object.values(films).sort((a, b) => a.film.title.localeCompare(b.film.title));
   }, [filteredShowtimes]);
 
-  const films = groupedFilms;
-
-  const handleMultiSelect = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (value: string) => {
+  const handleMultiSelect = (setter: (fn: (prev: string[]) => string[]) => void) => (value: string) => {
     setter(prev => prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]);
   };
 
+  const handleDateShortcut = (type: 'today' | 'week' | 'month') => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    if (type === 'today') {
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else if (type === 'week') {
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
+      setStartDate(todayStr);
+      setEndDate(endOfWeek.toISOString().split('T')[0]);
+    } else {
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      setStartDate(todayStr);
+      setEndDate(endOfMonth.toISOString().split('T')[0]);
+    }
+  };
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#0f1419',
-      color: '#e1e8ed',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    }}>
+    <div style={{ minHeight: '100vh' }}>
       {/* Header */}
       <header style={{
         backgroundColor: '#1e293b',
@@ -543,7 +267,7 @@ export default function Home() {
         zIndex: 100
       }}>
         <div
-          className="header-controls"
+          class="header-controls"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -561,12 +285,12 @@ export default function Home() {
             Cineboxd
           </h1>
 
-          <div className="header-row" style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div class="header-row" style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {/* Username Input */}
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onInput={(e) => setUsername((e.target as HTMLInputElement).value)}
               placeholder="Username"
               style={{
                 padding: '6px 12px',
@@ -582,11 +306,7 @@ export default function Home() {
             {/* Date Shortcuts */}
             <div style={{ display: 'flex', gap: '4px' }}>
               <button
-                onClick={() => {
-                  const today = new Date().toISOString().split('T')[0];
-                  setStartDate(today);
-                  setEndDate(today);
-                }}
+                onClick={() => handleDateShortcut('today')}
                 style={{
                   padding: '6px 10px',
                   borderRadius: '4px',
@@ -596,19 +316,11 @@ export default function Home() {
                   fontSize: '13px',
                   cursor: 'pointer'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2f3336'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0f1419'}
               >
                 Today
               </button>
               <button
-                onClick={() => {
-                  const today = new Date();
-                  const endOfWeek = new Date(today);
-                  endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
-                  setStartDate(today.toISOString().split('T')[0]);
-                  setEndDate(endOfWeek.toISOString().split('T')[0]);
-                }}
+                onClick={() => handleDateShortcut('week')}
                 style={{
                   padding: '6px 10px',
                   borderRadius: '4px',
@@ -618,18 +330,11 @@ export default function Home() {
                   fontSize: '13px',
                   cursor: 'pointer'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2f3336'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0f1419'}
               >
                 This Week
               </button>
               <button
-                onClick={() => {
-                  const today = new Date();
-                  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                  setStartDate(today.toISOString().split('T')[0]);
-                  setEndDate(endOfMonth.toISOString().split('T')[0]);
-                }}
+                onClick={() => handleDateShortcut('month')}
                 style={{
                   padding: '6px 10px',
                   borderRadius: '4px',
@@ -639,22 +344,20 @@ export default function Home() {
                   fontSize: '13px',
                   cursor: 'pointer'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2f3336'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0f1419'}
               >
                 This Month
               </button>
             </div>
 
             {/* Date Filters */}
-            <div className="date-filters" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div class="date-filters" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span style={{ fontSize: '12px', color: '#71767b' }}>From:</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <input
-                  className="date-input"
+                  class="date-input"
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onInput={(e) => setStartDate((e.target as HTMLInputElement).value)}
                   style={{
                     padding: '6px 8px',
                     borderRadius: '4px',
@@ -669,10 +372,7 @@ export default function Home() {
                 />
                 {startDate && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setStartDate('');
-                    }}
+                    onClick={() => setStartDate('')}
                     style={{
                       background: '#1e293b',
                       border: '1px solid #2f3336',
@@ -682,31 +382,20 @@ export default function Home() {
                       padding: '4px 8px',
                       fontSize: '14px',
                       lineHeight: '1',
-                      height: '28px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.backgroundColor = '#2f3336';
-                      e.currentTarget.style.color = '#e1e8ed';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.backgroundColor = '#1e293b';
-                      e.currentTarget.style.color = '#71767b';
+                      height: '28px'
                     }}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
               <span style={{ fontSize: '12px', color: '#71767b' }}>To:</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <input
-                  className="date-input"
+                  class="date-input"
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onInput={(e) => setEndDate((e.target as HTMLInputElement).value)}
                   style={{
                     padding: '6px 8px',
                     borderRadius: '4px',
@@ -721,10 +410,7 @@ export default function Home() {
                 />
                 {endDate && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEndDate('');
-                    }}
+                    onClick={() => setEndDate('')}
                     style={{
                       background: '#1e293b',
                       border: '1px solid #2f3336',
@@ -734,21 +420,10 @@ export default function Home() {
                       padding: '4px 8px',
                       fontSize: '14px',
                       lineHeight: '1',
-                      height: '28px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.backgroundColor = '#2f3336';
-                      e.currentTarget.style.color = '#e1e8ed';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.backgroundColor = '#1e293b';
-                      e.currentTarget.style.color = '#71767b';
+                      height: '28px'
                     }}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -949,7 +624,7 @@ export default function Home() {
           </div>
         )}
 
-        {!isLoading && !error && films.length === 0 && (
+        {!isLoading && !error && groupedFilms.length === 0 && (
           <div style={{
             textAlign: 'center',
             padding: '40px',
@@ -959,70 +634,22 @@ export default function Home() {
           </div>
         )}
 
-        {!isLoading && !error && films.length > 0 && (
+        {!isLoading && !error && groupedFilms.length > 0 && (
           <div style={{
             display: 'flex',
             flexDirection: 'column',
             gap: '16px'
           }}>
-            {films.map(({ film, showsByDateAndTheater }) => (
+            {groupedFilms.map(({ film, showsByDateAndTheater }) => (
               <MovieCard
                 key={film.slug}
                 film={film}
-                showsByDateAndTheater={showsByDateAndTheater}
-                formatTime={formatTime}
-                formatDuration={formatDuration}
+                showsByDateAndTheater={Array.from(showsByDateAndTheater.entries())}
               />
             ))}
           </div>
         )}
       </main>
-
-      <style jsx global>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-          .header-controls {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 8px !important;
-          }
-          .header-row {
-            flex-wrap: wrap !important;
-            gap: 8px !important;
-          }
-          .movie-card-layout {
-            flex-direction: column !important;
-          }
-          .movie-poster {
-            width: 120px !important;
-            height: 180px !important;
-            margin: 0 auto !important;
-          }
-          .movie-content {
-            min-height: auto !important;
-          }
-          .date-list {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-          }
-          .date-list::-webkit-scrollbar {
-            display: none;
-          }
-          .date-filters {
-            flex-wrap: wrap !important;
-          }
-          .date-input {
-            min-width: 120px !important;
-            width: 120px !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }

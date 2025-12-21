@@ -1,8 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-// Force dynamic rendering - skip static analysis during build
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+import { Handlers } from "$fresh/server.ts";
 
 // Cache TTLs
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for showtimes
@@ -14,13 +10,11 @@ const PATHE_BASE_URL = 'https://www.pathe.nl/api';
 const PATHE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
 
 // TMDB API configuration for enriching movie metadata
-// Get your free API key from https://www.themoviedb.org/settings/api
-const TMDB_API_KEY = process.env.TMDB_API_KEY || '';
+const TMDB_API_KEY = Deno.env.get('TMDB_API_KEY') || '';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 
 // All Pathé cinema locations in the Netherlands (32 theaters, 22 cities)
-// Full list available, but we query only major cities for performance
 const PATHE_CINEMAS_ALL: { slug: string; city: string; name: string }[] = [
   // Amsterdam (4 locations)
   { slug: 'pathe-arena', city: 'Amsterdam', name: 'Pathé Arena' },
@@ -101,19 +95,14 @@ interface Show {
 }
 
 // Deno KV singleton
-// @ts-ignore - Deno types not available in Next.js build
-let kv: any = null;
+let kv: Deno.Kv | null = null;
 
-async function getKv(): Promise<any> {
+async function getKv(): Promise<Deno.Kv | null> {
   if (kv) return kv;
   try {
-    // @ts-ignore - Deno global
-    if (typeof Deno !== 'undefined' && Deno.openKv) {
-      // @ts-ignore
-      kv = await Deno.openKv();
-      console.log('Deno KV initialized');
-      return kv;
-    }
+    kv = await Deno.openKv();
+    console.log('Deno KV initialized');
+    return kv;
   } catch (e) {
     console.warn('Deno KV not available:', e);
   }
@@ -126,7 +115,7 @@ async function getCached<T>(key: string): Promise<T | null> {
 
   try {
     // Get metadata
-    const meta = await store.get(['cache', key, 'meta']);
+    const meta = await store.get<{ chunks: number; timestamp: number }>(['cache', key, 'meta']);
     if (!meta.value) return null;
 
     // Check TTL
@@ -146,7 +135,7 @@ async function getCached<T>(key: string): Promise<T | null> {
     // Fetch all chunks
     const chunks: string[] = [];
     for (let i = 0; i < meta.value.chunks; i++) {
-      const chunk = await store.get(['cache', key, 'chunk', i]);
+      const chunk = await store.get<string>(['cache', key, 'chunk', i]);
       if (!chunk.value) {
         console.warn(`Missing chunk ${i} for ${key}`);
         return null;
@@ -218,10 +207,10 @@ async function getCachedTMDBMetadata(title: string): Promise<TMDBMovieDetails | 
 
   try {
     const key = ['tmdb', title.toLowerCase()];
-    const result = await store.get(key);
+    const result = await store.get<{ data: TMDBMovieDetails | null; timestamp: number }>(key);
     if (!result.value) return undefined;
 
-    const { data, timestamp } = result.value as { data: TMDBMovieDetails | null; timestamp: number };
+    const { data, timestamp } = result.value;
     if (Date.now() - timestamp >= METADATA_CACHE_TTL_MS) {
       return undefined; // expired
     }
@@ -252,7 +241,7 @@ const searchTMDB = async (title: string): Promise<TMDBMovie | null> => {
     if (!response.ok) return null;
     const data = await response.json();
     return data.results?.[0] || null;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -264,7 +253,7 @@ const getTMDBDetails = async (movieId: number): Promise<TMDBMovieDetails | null>
     const response = await fetch(url);
     if (!response.ok) return null;
     return response.json();
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -388,7 +377,7 @@ const fetchPatheShowtimesForCinema = async (
     if (!response.ok) return [];
     const data = await response.json();
     return Array.isArray(data) ? data : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 };
@@ -656,7 +645,7 @@ const fetchCinevilleShowtimes = async (watchlistTitles: string[]): Promise<Show[
     console.log(`Cineville: fetched ${shows.length} showtimes`);
 
     // Find films missing poster or directors for TMDB enrichment
-    const filmsNeedingEnrichment = new Map<string, any>();
+    const filmsNeedingEnrichment = new Map<string, { needsPoster: boolean; needsDirectors: boolean }>();
     for (const show of shows) {
       const title = show.film?.title;
       if (!title) continue;
@@ -679,7 +668,7 @@ const fetchCinevilleShowtimes = async (watchlistTitles: string[]): Promise<Show[
     }
 
     // Add chain identifier and enrich with TMDB data
-    return shows.map((show: any) => {
+    return shows.map((show: Show) => {
       const enriched = { ...show, chain: 'cineville' as const };
       const title = show.film?.title;
       const tmdb = title ? tmdbMetadataMap.get(title) : null;
@@ -707,78 +696,82 @@ const fetchCinevilleShowtimes = async (watchlistTitles: string[]): Promise<Show[
   }
 };
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const username = (searchParams.get("username") || "105424").trim();
+export const handler: Handlers = {
+  async GET(req) {
+    try {
+      const url = new URL(req.url);
+      const username = (url.searchParams.get("username") || "105424").trim();
 
-    // Check cache first (v9 with 24h cache + Cineville TMDB enrichment)
-    const cacheKey = `showtimes:v9:${username}`;
-    const cached = await getCached<any>(cacheKey);
-    if (cached) {
+      // Check cache first (v9 with 24h cache + Cineville TMDB enrichment)
+      const cacheKey = `showtimes:v9:${username}`;
+      const cached = await getCached<Record<string, unknown>>(cacheKey);
+      if (cached) {
+        const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
+        return new Response(JSON.stringify(cached), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
+            'Surrogate-Control': `max-age=${CACHE_SECONDS}`,
+            'Vary': 'Accept-Encoding',
+            'X-Cache': 'HIT',
+          },
+        });
+      }
+
+      // Fetch watchlist first
+      const watchlist = (await getWatchlist(username)) as { title: string }[];
+      const watchlistTitles = watchlist.map((x) => x.title);
+
+      console.log(`Fetching showtimes for ${watchlistTitles.length} films from watchlist`);
+
+      // Fetch from both sources in parallel with graceful degradation
+      const [cinevilleResult, patheResult] = await Promise.allSettled([
+        fetchCinevilleShowtimes(watchlistTitles),
+        fetchPatheShowtimes(watchlistTitles),
+      ]);
+
+      // Extract results, defaulting to empty arrays on failure
+      const cinevilleShows = cinevilleResult.status === 'fulfilled' ? cinevilleResult.value : [];
+      const patheShows = patheResult.status === 'fulfilled' ? patheResult.value : [];
+
+      // Log any failures
+      if (cinevilleResult.status === 'rejected') {
+        console.error('Cineville fetch rejected:', cinevilleResult.reason);
+      }
+      if (patheResult.status === 'rejected') {
+        console.error('Pathé fetch rejected:', patheResult.reason);
+      }
+
+      // Merge all showtimes
+      const allShows = [...cinevilleShows, ...patheShows];
+
+      console.log(`Total: ${allShows.length} showtimes (Cineville: ${cinevilleShows.length}, Pathé: ${patheShows.length})`);
+
+      // Format response to match expected structure
+      const resp = { data: { showtimes: { data: allShows } } };
+
+      // Store in cache
+      await setCache(cacheKey, resp);
+
       const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
-      return NextResponse.json(cached, {
+
+      return new Response(JSON.stringify(resp), {
         status: 200,
         headers: {
+          'Content-Type': 'application/json',
           'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
           'Surrogate-Control': `max-age=${CACHE_SECONDS}`,
           'Vary': 'Accept-Encoding',
-          'X-Cache': 'HIT',
+          'X-Cache': 'MISS',
         },
       });
+    } catch (error) {
+      console.error('API error:', error);
+      return new Response(
+        JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-
-    // Fetch watchlist first
-    const watchlist = (await getWatchlist(username)) as { title: string }[];
-    const watchlistTitles = watchlist.map((x) => x.title);
-
-    console.log(`Fetching showtimes for ${watchlistTitles.length} films from watchlist`);
-
-    // Fetch from both sources in parallel with graceful degradation
-    const [cinevilleResult, patheResult] = await Promise.allSettled([
-      fetchCinevilleShowtimes(watchlistTitles),
-      fetchPatheShowtimes(watchlistTitles),
-    ]);
-
-    // Extract results, defaulting to empty arrays on failure
-    const cinevilleShows = cinevilleResult.status === 'fulfilled' ? cinevilleResult.value : [];
-    const patheShows = patheResult.status === 'fulfilled' ? patheResult.value : [];
-
-    // Log any failures
-    if (cinevilleResult.status === 'rejected') {
-      console.error('Cineville fetch rejected:', cinevilleResult.reason);
-    }
-    if (patheResult.status === 'rejected') {
-      console.error('Pathé fetch rejected:', patheResult.reason);
-    }
-
-    // Merge all showtimes
-    const allShows = [...cinevilleShows, ...patheShows];
-
-    console.log(`Total: ${allShows.length} showtimes (Cineville: ${cinevilleShows.length}, Pathé: ${patheShows.length})`);
-
-    // Format response to match expected structure
-    const resp = { data: { showtimes: { data: allShows } } };
-
-    // Store in cache
-    await setCache(cacheKey, resp);
-
-    const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
-
-    return NextResponse.json(resp, {
-      status: 200,
-      headers: {
-        'Cache-Control': `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
-        'Surrogate-Control': `max-age=${CACHE_SECONDS}`,
-        'Vary': 'Accept-Encoding',
-        'X-Cache': 'MISS',
-      },
-    });
-  } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
+  },
+};
