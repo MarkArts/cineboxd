@@ -537,6 +537,9 @@ export default function MovieList({ listPath }: MovieListProps) {
       {/* Share Modal */}
       {showShareModal && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-modal-title"
           style={{
             position: "fixed",
             inset: 0,
@@ -547,6 +550,9 @@ export default function MovieList({ listPath }: MovieListProps) {
             zIndex: 1000,
           }}
           onClick={() => setShowShareModal(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setShowShareModal(false);
+          }}
         >
           <div
             style={{
@@ -560,6 +566,7 @@ export default function MovieList({ listPath }: MovieListProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <h3
+              id="share-modal-title"
               style={{
                 margin: "0 0 16px 0",
                 color: "#e1e8ed",
@@ -870,6 +877,8 @@ export default function MovieList({ listPath }: MovieListProps) {
             <div style={{ position: "relative" }} data-dropdown="city">
               <button
                 type="button"
+                aria-expanded={showCityFilter}
+                aria-haspopup="listbox"
                 onClick={() => {
                   setShowCityFilter(!showCityFilter);
                   setShowMovieFilter(false);
@@ -938,6 +947,8 @@ export default function MovieList({ listPath }: MovieListProps) {
             <div style={{ position: "relative" }} data-dropdown="theater">
               <button
                 type="button"
+                aria-expanded={showTheaterFilter}
+                aria-haspopup="listbox"
                 onClick={() => {
                   setShowTheaterFilter(!showTheaterFilter);
                   setShowCityFilter(false);
@@ -1007,6 +1018,8 @@ export default function MovieList({ listPath }: MovieListProps) {
             <div style={{ position: "relative" }} data-dropdown="movie">
               <button
                 type="button"
+                aria-expanded={showMovieFilter}
+                aria-haspopup="listbox"
                 onClick={() => {
                   setShowMovieFilter(!showMovieFilter);
                   setShowCityFilter(false);
@@ -1085,6 +1098,9 @@ export default function MovieList({ listPath }: MovieListProps) {
       >
         {isLoading && (
           <div
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
             style={{
               textAlign: "center",
               padding: "80px 40px",

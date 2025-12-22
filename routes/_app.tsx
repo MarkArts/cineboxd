@@ -54,6 +54,14 @@ export default function App({ Component }: PageProps) {
             content-visibility: auto;
           }
 
+          /* Keyboard focus styles */
+          button:focus-visible,
+          input:focus-visible,
+          a:focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+          }
+
           /* Bokeh animation for home page */
           @keyframes float {
             0%, 100% {

@@ -154,6 +154,7 @@ export default function HomePage() {
     >
       {/* Bokeh Background */}
       <div
+        aria-hidden="true"
         style={{
           position: "absolute",
           inset: 0,
@@ -230,6 +231,7 @@ export default function HomePage() {
               onInput={(e) => setInput((e.target as HTMLInputElement).value)}
               onKeyDown={handleKeyDown}
               placeholder="Username, list URL, or letterboxd.com/..."
+              aria-label="Letterboxd username or list URL"
               disabled={isNavigating}
               style={{
                 width: "100%",
