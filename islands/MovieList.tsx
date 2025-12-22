@@ -244,7 +244,7 @@ export default function MovieList({ listPath }: MovieListProps) {
   }, [listPath]);
 
   // Extract unique filter options
-  const { uniqueCities, uniqueTheaters, uniqueFilms, filteredTheaters } =
+  const { uniqueCities, uniqueTheaters, uniqueFilms, filteredTheaters, filteredFilms } =
     useMemo(() => {
       const theatersMap = new Map<string, Show["theater"]>();
       const filmsMap = new Map<string, Show["film"]>();
@@ -278,13 +278,29 @@ export default function MovieList({ listPath }: MovieListProps) {
         )
         : allTheaters;
 
+      // Filter films by selected cities/theaters
+      const availableFilmSlugs = new Set<string>();
+      showtimes.forEach((show) => {
+        const cityMatch = selectedCities.length === 0 ||
+          selectedCities.includes(show.theater.address?.city || "");
+        const theaterMatch = selectedTheaters.length === 0 ||
+          selectedTheaters.includes(show.theater.name);
+        if (cityMatch && theaterMatch) {
+          availableFilmSlugs.add(show.film.slug);
+        }
+      });
+      const filmsInSelection = allFilms.filter((film) =>
+        availableFilmSlugs.has(film.slug)
+      );
+
       return {
         uniqueCities: allCities,
         uniqueTheaters: allTheaters,
         uniqueFilms: allFilms,
         filteredTheaters: theatersInSelectedCities,
+        filteredFilms: filmsInSelection,
       };
-    }, [showtimes, selectedCities]);
+    }, [showtimes, selectedCities, selectedTheaters]);
 
   // Auto-cleanup: Remove selected theaters that are not in selected cities
   useEffect(() => {
@@ -299,6 +315,18 @@ export default function MovieList({ listPath }: MovieListProps) {
       }
     }
   }, [selectedCities, selectedTheaters, uniqueTheaters]);
+
+  // Auto-cleanup: Remove selected films that are not available in current selection
+  useEffect(() => {
+    if (selectedFilms.length > 0 && (selectedCities.length > 0 || selectedTheaters.length > 0)) {
+      const availableSlugs = new Set(filteredFilms.map((f) => f.slug));
+      const validFilms = selectedFilms.filter((slug) => availableSlugs.has(slug));
+
+      if (validFilms.length !== selectedFilms.length) {
+        setSelectedFilms(validFilms);
+      }
+    }
+  }, [selectedCities, selectedTheaters, selectedFilms, filteredFilms]);
 
   // Filter showtimes based on selected filters
   const filteredShowtimes = useMemo(() => {
@@ -956,8 +984,11 @@ export default function MovieList({ listPath }: MovieListProps) {
                   cursor: "pointer",
                 }}
               >
-                All Movies{" "}
-                {selectedFilms.length > 0 && `(${selectedFilms.length})`}
+                All Movies {selectedFilms.length > 0
+                  ? `(${selectedFilms.length})`
+                  : (selectedCities.length > 0 || selectedTheaters.length > 0)
+                  ? `(${filteredFilms.length} available)`
+                  : ""}
               </button>
               {showMovieFilter && (
                 <div
@@ -976,7 +1007,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                     zIndex: 1000,
                   }}
                 >
-                  {uniqueFilms.map((film) => (
+                  {filteredFilms.map((film) => (
                     <label
                       key={film.slug}
                       style={{
