@@ -84,6 +84,7 @@ export default function App({ Component }: PageProps) {
             border-radius: 50%;
             filter: blur(40px);
             opacity: 0.3;
+            will-change: transform, opacity;
           }
           .bokeh-1 {
             width: 300px;
@@ -221,7 +222,9 @@ export default function App({ Component }: PageProps) {
         </style>
       </head>
       <body>
-        <Component />
+        <main>
+          <Component />
+        </main>
       </body>
     </html>
   );

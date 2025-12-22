@@ -264,7 +264,7 @@ export default function HomePage() {
                 backgroundColor: input.trim() && !isNavigating
                   ? "#3b82f6"
                   : "#374151",
-                color: input.trim() && !isNavigating ? "white" : "#6b7280",
+                color: input.trim() && !isNavigating ? "white" : "#9ca3af",
                 border: "none",
                 borderRadius: "12px",
                 cursor: input.trim() && !isNavigating
@@ -304,7 +304,7 @@ export default function HomePage() {
           <p
             style={{
               fontSize: "0.9rem",
-              color: "#6b7280",
+              color: "#9ca3af",
               marginBottom: "16px",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
@@ -380,7 +380,7 @@ export default function HomePage() {
                   </div>
                   <div
                     style={{
-                      color: "#71767b",
+                      color: "#8b949e",
                       fontSize: "0.85rem",
                       marginTop: "2px",
                     }}
@@ -449,7 +449,7 @@ export default function HomePage() {
                     </div>
                     <div
                       style={{
-                        color: "#71767b",
+                        color: "#8b949e",
                         fontSize: "0.8rem",
                         marginTop: "2px",
                       }}
@@ -468,7 +468,7 @@ export default function HomePage() {
           style={{
             marginTop: "40px",
             fontSize: "0.8rem",
-            color: "#4b5563",
+            color: "#9ca3af",
           }}
         >
           Works with any public Letterboxd list, watchlist, or username
@@ -477,7 +477,7 @@ export default function HomePage() {
           style={{
             marginTop: "8px",
             fontSize: "0.75rem",
-            color: "#374151",
+            color: "#6b7280",
           }}
         >
           Powered by Cineville & Pathe

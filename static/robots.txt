@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cineboxd.gooncave.nl/sitemap.xml
