@@ -477,7 +477,7 @@ export default function HomePage() {
           style={{
             marginTop: "8px",
             fontSize: "0.75rem",
-            color: "#6b7280",
+            color: "#9ca3af",
           }}
         >
           Powered by Cineville & Pathe
