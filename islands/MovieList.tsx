@@ -274,15 +274,15 @@ export default function MovieList({ listPath }: MovieListProps) {
       setTravelTimeError(null); // Clear any previous error
       let errorShown = false; // Track if we've shown an error
 
-      // Extract unique theater names from showtimes
-      const theaters = new Set<string>();
+      // Extract unique theaters with their cities from showtimes
+      const theaterMap = new Map<string, string>(); // name -> city
       showtimes.forEach((show) => {
         if (show.theater?.name) {
-          theaters.add(show.theater.name);
+          theaterMap.set(show.theater.name, show.theater.address?.city || "");
         }
       });
 
-      console.log(`[Travel Times] Found ${theaters.size} unique theaters:`, Array.from(theaters));
+      console.log(`[Travel Times] Found ${theaterMap.size} unique theaters:`, Array.from(theaterMap.keys()));
 
       // Check if we have cached times for this location
       const cachedTimes = getCachedTravelTimes(activeLocation);
@@ -295,14 +295,14 @@ export default function MovieList({ listPath }: MovieListProps) {
       }
 
       // Fetch missing theater times lazily (one at a time)
-      for (const theaterName of Array.from(theaters)) {
+      for (const [theaterName, theaterCity] of Array.from(theaterMap.entries())) {
         // Skip if already cached
         if (times.has(theaterName)) {
           console.log(`[Travel Times] Skipping cached theater: ${theaterName}`);
           continue;
         }
 
-        console.log(`[Travel Times] Fetching travel time for: ${theaterName}`);
+        console.log(`[Travel Times] Fetching travel time for: ${theaterName} in ${theaterCity}`);
         try {
           const response = await fetch("/api/travel-time", {
             method: "POST",
@@ -310,6 +310,7 @@ export default function MovieList({ listPath }: MovieListProps) {
             body: JSON.stringify({
               fromLocation: activeLocation,
               toTheater: theaterName,
+              toCity: theaterCity, // Pass city as fallback
             }),
           });
 

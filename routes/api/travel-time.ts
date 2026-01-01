@@ -11,6 +11,7 @@ const TRAVEL_TIME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 interface TravelTimeRequest {
   fromLocation: string; // User's location (city or station name)
   toTheater: string; // Theater name (e.g., "Pathé Arena")
+  toCity?: string; // Fallback city if theater not found in mappings
 }
 
 interface TravelTimeResponse {
@@ -145,7 +146,12 @@ export const handler: Handlers = {
 
       // Resolve locations to station codes
       const fromStation = getStationMapping(body.fromLocation);
-      const toStation = getStationMapping(body.toTheater);
+      let toStation = getStationMapping(body.toTheater);
+
+      // If theater not found, try fallback to city
+      if (!toStation && body.toCity) {
+        toStation = getStationMapping(body.toCity);
+      }
 
       if (!fromStation || !toStation) {
         return new Response(
@@ -153,6 +159,7 @@ export const handler: Handlers = {
             error: "Could not resolve location to station",
             fromLocation: body.fromLocation,
             toTheater: body.toTheater,
+            toCity: body.toCity,
           }),
           { status: 400, headers: { "Content-Type": "application/json" } },
         );
