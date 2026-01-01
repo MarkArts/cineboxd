@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { IS_BROWSER } from "$fresh/runtime.ts";
 import MovieCard from "./MovieCard.tsx";
+import { CITY_STATION_MAPPINGS } from "../data/station-mappings.ts";
 
 // Witty loading messages
 const LOADING_MESSAGES = [
@@ -133,7 +134,9 @@ export default function MovieList({ listPath }: MovieListProps) {
   const [shortLink, setShortLink] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [userLocation, setUserLocation] = useState<string>("");
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [activeLocation, setActiveLocation] = useState<string>("");
   const [travelTimes, setTravelTimes] = useState<Map<string, number>>(
     new Map(),
   );
@@ -167,20 +170,23 @@ export default function MovieList({ listPath }: MovieListProps) {
     if (urlCities && urlCities.length > 0) setSelectedCities(urlCities);
   }, []);
 
-  // Load user location from localStorage on mount
+  // Load active location from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("cineboxd_user_location");
-    if (saved) setUserLocation(saved);
+    if (saved) {
+      setActiveLocation(saved);
+      setSelectedLocation(saved);
+    }
   }, []);
 
-  // Save user location to localStorage when changed
+  // Save active location to localStorage when changed
   useEffect(() => {
-    if (userLocation) {
-      localStorage.setItem("cineboxd_user_location", userLocation);
+    if (activeLocation) {
+      localStorage.setItem("cineboxd_user_location", activeLocation);
     } else {
       localStorage.removeItem("cineboxd_user_location");
     }
-  }, [userLocation]);
+  }, [activeLocation]);
 
   // Handle click outside to close dropdowns
   useEffect(() => {
@@ -227,58 +233,63 @@ export default function MovieList({ listPath }: MovieListProps) {
     }
   }, [startDate, endDate, selectedCities, selectedTheaters, selectedFilms]);
 
-  // Fetch travel times when user location or showtimes change
-  useEffect(() => {
-    if (!userLocation.trim() || showtimes.length === 0) {
+  // Fetch travel times when active location is set (manual trigger only)
+  const fetchTravelTimes = async () => {
+    if (!activeLocation.trim() || showtimes.length === 0) {
       setTravelTimes(new Map());
       return;
     }
 
-    const fetchTravelTimes = async () => {
-      setIsFetchingTravelTimes(true);
+    setIsFetchingTravelTimes(true);
 
-      // Extract unique theater names from showtimes
-      const theaters = new Set<string>();
-      showtimes.forEach((show) => {
-        if (show.theater?.name) {
-          theaters.add(show.theater.name);
-        }
-      });
+    // Extract unique theater names from showtimes
+    const theaters = new Set<string>();
+    showtimes.forEach((show) => {
+      if (show.theater?.name) {
+        theaters.add(show.theater.name);
+      }
+    });
 
-      // Fetch travel times for each theater in parallel
-      const times = new Map<string, number>();
+    // Fetch travel times for each theater in parallel
+    const times = new Map<string, number>();
 
-      await Promise.all(
-        Array.from(theaters).map(async (theaterName) => {
-          try {
-            const response = await fetch("/api/travel-time", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                fromLocation: userLocation,
-                toTheater: theaterName,
-              }),
-            });
+    await Promise.all(
+      Array.from(theaters).map(async (theaterName) => {
+        try {
+          const response = await fetch("/api/travel-time", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fromLocation: activeLocation,
+              toTheater: theaterName,
+            }),
+          });
 
-            if (response.ok) {
-              const data = await response.json();
-              times.set(theaterName, data.duration);
-            }
-          } catch (e) {
-            console.error(
-              `Travel time fetch failed for ${theaterName}:`,
-              e,
-            );
+          if (response.ok) {
+            const data = await response.json();
+            times.set(theaterName, data.duration);
           }
-        }),
-      );
+        } catch (e) {
+          console.error(
+            `Travel time fetch failed for ${theaterName}:`,
+            e,
+          );
+        }
+      }),
+    );
 
-      setTravelTimes(times);
-      setIsFetchingTravelTimes(false);
-    };
+    setTravelTimes(times);
+    setIsFetchingTravelTimes(false);
+  };
 
-    fetchTravelTimes();
-  }, [userLocation, showtimes]);
+  // Fetch travel times when active location changes
+  useEffect(() => {
+    if (activeLocation) {
+      fetchTravelTimes();
+    } else {
+      setTravelTimes(new Map());
+    }
+  }, [activeLocation]);
 
   const fetchShowtimes = async () => {
     if (!listPath.trim()) return;
@@ -747,6 +758,184 @@ export default function MovieList({ listPath }: MovieListProps) {
         </div>
       )}
 
+      {/* Location Modal */}
+      {showLocationModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="location-modal-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowLocationModal(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setShowLocationModal(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#1e293b",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "500px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflow: "auto",
+              border: "1px solid #2f3336",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              id="location-modal-title"
+              style={{
+                margin: "0 0 16px 0",
+                color: "#e1e8ed",
+                fontSize: "18px",
+              }}
+            >
+              Select Your Location
+            </h3>
+
+            <p
+              style={{
+                color: "#9ca3af",
+                fontSize: "14px",
+                margin: "0 0 16px 0",
+              }}
+            >
+              Choose your starting location to see travel times to each theater
+            </p>
+
+            <div style={{ marginBottom: "16px" }}>
+              {Object.entries(CITY_STATION_MAPPINGS).map(([city, mapping]) => (
+                <button
+                  key={city}
+                  type="button"
+                  onClick={() => setSelectedLocation(city)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "12px 16px",
+                    marginBottom: "8px",
+                    backgroundColor:
+                      selectedLocation === city ? "#1d4ed8" : "#0f1419",
+                    border: `1px solid ${
+                      selectedLocation === city ? "#1d4ed8" : "#2f3336"
+                    }`,
+                    borderRadius: "6px",
+                    color: selectedLocation === city ? "white" : "#e1e8ed",
+                    fontSize: "14px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedLocation !== city) {
+                      (e.target as HTMLElement).style.backgroundColor =
+                        "#1e293b";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedLocation !== city) {
+                      (e.target as HTMLElement).style.backgroundColor =
+                        "#0f1419";
+                    }
+                  }}
+                >
+                  <div style={{ fontWeight: "500" }}>{city}</div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: selectedLocation === city
+                        ? "rgba(255,255,255,0.8)"
+                        : "#9ca3af",
+                      marginTop: "4px",
+                    }}
+                  >
+                    {mapping.stationName}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(false)}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "transparent",
+                  color: "#9ca3af",
+                  border: "1px solid #2f3336",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                Cancel
+              </button>
+              {activeLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveLocation("");
+                    setSelectedLocation("");
+                    setShowLocationModal(false);
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#dc2626",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  Clear Location
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedLocation) {
+                    setActiveLocation(selectedLocation);
+                    setShowLocationModal(false);
+                  }
+                }}
+                disabled={!selectedLocation}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: selectedLocation ? "#1d4ed8" : "#374151",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: selectedLocation ? "pointer" : "not-allowed",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  opacity: selectedLocation ? 1 : 0.5,
+                }}
+              >
+                Set Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header
         style={{
@@ -823,61 +1012,40 @@ export default function MovieList({ listPath }: MovieListProps) {
             </button>
           </div>
 
-          {/* Location Input */}
-          <div
+          {/* Location Button */}
+          <button
+            type="button"
+            onClick={() => setShowLocationModal(true)}
             style={{
+              marginLeft: "auto",
+              padding: "6px 12px",
+              backgroundColor: activeLocation ? "#1d4ed8" : "#1e293b",
+              border: "1px solid #2f3336",
+              borderRadius: "6px",
+              color: activeLocation ? "white" : "#9ca3af",
+              fontSize: "13px",
+              fontWeight: "500",
+              cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "8px",
-              marginLeft: "auto",
+              gap: "6px",
             }}
           >
-            <label
-              htmlFor="user-location"
-              style={{
-                fontSize: "13px",
-                color: "#9ca3af",
-                whiteSpace: "nowrap",
-              }}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              Travel from:
-            </label>
-            <input
-              id="user-location"
-              type="text"
-              placeholder="Amsterdam"
-              value={userLocation}
-              onInput={(e) =>
-                setUserLocation((e.target as HTMLInputElement).value)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: "4px",
-                border: "1px solid #2f3336",
-                backgroundColor: "#0f1419",
-                color: "#e1e8ed",
-                fontSize: "14px",
-                width: "150px",
-              }}
-            />
-            {userLocation && (
-              <button
-                type="button"
-                onClick={() => setUserLocation("")}
-                aria-label="Clear location"
-                style={{
-                  padding: "6px 8px",
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #2f3336",
-                  borderRadius: "4px",
-                  color: "#9ca3af",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                }}
-              >
-                Clear
-              </button>
-            )}
-          </div>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {activeLocation || "Set Location"}
+          </button>
 
           <div
             class="header-row"
