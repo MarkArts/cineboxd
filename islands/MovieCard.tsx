@@ -172,7 +172,7 @@ export default function MovieCard(
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: "14px",
-                  color: "#71767b",
+                  color: "#9ca3af",
                   textAlign: "center",
                   padding: "8px",
                 }}
@@ -212,7 +212,7 @@ export default function MovieCard(
                 gap: "16px",
                 marginBottom: "12px",
                 fontSize: "14px",
-                color: "#71767b",
+                color: "#9ca3af",
               }}
             >
               {film.directors.length > 0 && (
@@ -307,7 +307,7 @@ export default function MovieCard(
                           <span
                             style={{
                               fontSize: "12px",
-                              color: "#71767b",
+                              color: "#9ca3af",
                               fontWeight: "normal",
                               marginLeft: "8px",
                             }}

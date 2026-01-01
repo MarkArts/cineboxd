@@ -577,7 +577,7 @@ export default function MovieList({ listPath }: MovieListProps) {
             </h3>
 
             {isGeneratingLink ? (
-              <p style={{ color: "#71767b" }}>Generating link...</p>
+              <p style={{ color: "#9ca3af" }}>Generating link...</p>
             ) : shortLink ? (
               <div>
                 <div
@@ -619,7 +619,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                     {linkCopied ? "Copied!" : "Copy"}
                   </button>
                 </div>
-                <p style={{ color: "#71767b", fontSize: "13px", margin: 0 }}>
+                <p style={{ color: "#9ca3af", fontSize: "13px", margin: 0 }}>
                   Share this link to show others what's playing from this list.
                 </p>
               </div>
@@ -634,7 +634,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                 marginTop: "16px",
                 padding: "8px 16px",
                 backgroundColor: "transparent",
-                color: "#71767b",
+                color: "#9ca3af",
                 border: "1px solid #2f3336",
                 borderRadius: "6px",
                 cursor: "pointer",
@@ -681,7 +681,7 @@ export default function MovieList({ listPath }: MovieListProps) {
             >
               Cineboxd
             </a>
-            <span style={{ color: "#71767b", fontSize: "14px" }}>·</span>
+            <span style={{ color: "#9ca3af", fontSize: "14px" }}>·</span>
             <span style={{ color: "#e1e8ed", fontSize: "14px" }}>
               {formatListName(listPath)}
             </span>
@@ -787,11 +787,12 @@ export default function MovieList({ listPath }: MovieListProps) {
               class="date-filters"
               style={{ display: "flex", alignItems: "center", gap: "4px" }}
             >
-              <span style={{ fontSize: "12px", color: "#71767b" }}>From:</span>
+              <label htmlFor="filter-start-date" style={{ fontSize: "12px", color: "#9ca3af" }}>From:</label>
               <div
                 style={{ display: "flex", alignItems: "center", gap: "4px" }}
               >
                 <input
+                  id="filter-start-date"
                   class="date-input"
                   type="date"
                   value={startDate}
@@ -817,7 +818,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                       background: "#1e293b",
                       border: "1px solid #2f3336",
                       borderRadius: "3px",
-                      color: "#71767b",
+                      color: "#9ca3af",
                       cursor: "pointer",
                       padding: "4px 8px",
                       fontSize: "14px",
@@ -829,11 +830,12 @@ export default function MovieList({ listPath }: MovieListProps) {
                   </button>
                 )}
               </div>
-              <span style={{ fontSize: "12px", color: "#71767b" }}>To:</span>
+              <label htmlFor="filter-end-date" style={{ fontSize: "12px", color: "#9ca3af" }}>To:</label>
               <div
                 style={{ display: "flex", alignItems: "center", gap: "4px" }}
               >
                 <input
+                  id="filter-end-date"
                   class="date-input"
                   type="date"
                   value={endDate}
@@ -859,7 +861,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                       background: "#1e293b",
                       border: "1px solid #2f3336",
                       borderRadius: "3px",
-                      color: "#71767b",
+                      color: "#9ca3af",
                       cursor: "pointer",
                       padding: "4px 8px",
                       fontSize: "14px",
@@ -1104,7 +1106,7 @@ export default function MovieList({ listPath }: MovieListProps) {
             style={{
               textAlign: "center",
               padding: "80px 40px",
-              color: "#71767b",
+              color: "#9ca3af",
             }}
           >
             <FilmReelSpinner />
@@ -1235,7 +1237,7 @@ export default function MovieList({ listPath }: MovieListProps) {
           <a
             href="/105424/watchlist/"
             style={{
-              color: "#71767b",
+              color: "#9ca3af",
               textDecoration: "none",
               fontSize: "0.85rem",
             }}

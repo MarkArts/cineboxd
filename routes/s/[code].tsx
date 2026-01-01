@@ -37,7 +37,7 @@ export default function ShortLinkPage({ data }: PageProps<{ notFound?: boolean }
         }}
       >
         <h1 style={{ fontSize: "3rem", marginBottom: "16px" }}>404</h1>
-        <p style={{ color: "#71767b", marginBottom: "24px" }}>
+        <p style={{ color: "#9ca3af", marginBottom: "24px" }}>
           This short link doesn't exist or has expired.
         </p>
         <a
