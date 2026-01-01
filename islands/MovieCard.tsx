@@ -262,9 +262,9 @@ export default function MovieCard(
                     aria-label={`${isSelected ? "Selected: " : "Select "}showtimes for ${fullDateStr}`}
                     style={{
                       padding: "6px 12px",
-                      backgroundColor: isSelected ? "#3b82f6" : "#0f1419",
+                      backgroundColor: isSelected ? "#1d4ed8" : "#0f1419",
                       color: isSelected ? "white" : "#e1e8ed",
-                      border: `1px solid ${isSelected ? "#3b82f6" : "#2f3336"}`,
+                      border: `1px solid ${isSelected ? "#1d4ed8" : "#2f3336"}`,
                       borderRadius: "4px",
                       fontSize: "13px",
                       cursor: "pointer",
@@ -341,7 +341,7 @@ export default function MovieCard(
                           )
                           .map((show) => {
                             const isPathe = show.chain === "pathe";
-                            const bgColor = isPathe ? "#f59e0b" : "#3b82f6";
+                            const bgColor = isPathe ? "#f59e0b" : "#1d4ed8";
                             const timeStr = formatTime(show.startDate);
                             const ariaLabel = show.ticketingUrl
                               ? `Book tickets for ${timeStr} showing of ${film.title} at ${data.theater.name}`

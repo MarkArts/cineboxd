@@ -606,7 +606,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                     onClick={copyToClipboard}
                     style={{
                       padding: "10px 16px",
-                      backgroundColor: linkCopied ? "#10b981" : "#3b82f6",
+                      backgroundColor: linkCopied ? "#10b981" : "#1d4ed8",
                       color: "white",
                       border: "none",
                       borderRadius: "6px",
@@ -692,7 +692,7 @@ export default function MovieList({ listPath }: MovieListProps) {
               style={{
                 marginLeft: "8px",
                 padding: "6px 12px",
-                backgroundColor: "#3b82f6",
+                backgroundColor: "#1d4ed8",
                 border: "none",
                 borderRadius: "6px",
                 color: "white",
@@ -892,7 +892,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                   borderRadius: "4px",
                   border: "1px solid #2f3336",
                   backgroundColor: selectedCities.length > 0
-                    ? "#3b82f6"
+                    ? "#1d4ed8"
                     : "#0f1419",
                   color: selectedCities.length > 0 ? "white" : "#e1e8ed",
                   fontSize: "14px",
@@ -962,7 +962,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                   borderRadius: "4px",
                   border: "1px solid #2f3336",
                   backgroundColor: selectedTheaters.length > 0
-                    ? "#3b82f6"
+                    ? "#1d4ed8"
                     : "#0f1419",
                   color: selectedTheaters.length > 0 ? "white" : "#e1e8ed",
                   fontSize: "14px",
@@ -1033,7 +1033,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                   borderRadius: "4px",
                   border: "1px solid #2f3336",
                   backgroundColor: selectedFilms.length > 0
-                    ? "#3b82f6"
+                    ? "#1d4ed8"
                     : "#0f1419",
                   color: selectedFilms.length > 0 ? "white" : "#e1e8ed",
                   fontSize: "14px",
@@ -1155,7 +1155,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                 padding: "12px 24px",
                 fontSize: "14px",
                 fontWeight: "600",
-                backgroundColor: "#3b82f6",
+                backgroundColor: "#1d4ed8",
                 color: "white",
                 border: "none",
                 borderRadius: "8px",
