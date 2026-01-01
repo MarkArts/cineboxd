@@ -688,6 +688,7 @@ export default function MovieList({ listPath }: MovieListProps) {
             <button
               type="button"
               onClick={handleShare}
+              aria-label="Share this list"
               style={{
                 marginLeft: "8px",
                 padding: "6px 12px",

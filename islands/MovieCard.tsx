@@ -243,6 +243,15 @@ export default function MovieCard(
                     month: "short",
                   },
                 );
+                const fullDateStr = new Date(date + "T00:00:00").toLocaleDateString(
+                  "en-GB",
+                  {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  },
+                );
                 const isSelected = date === selectedDate;
 
                 return (
@@ -250,6 +259,7 @@ export default function MovieCard(
                     type="button"
                     key={date}
                     onClick={() => setSelectedDate(date)}
+                    aria-label={`${isSelected ? "Selected: " : "Select "}showtimes for ${fullDateStr}`}
                     style={{
                       padding: "6px 12px",
                       backgroundColor: isSelected ? "#3b82f6" : "#0f1419",
@@ -332,12 +342,17 @@ export default function MovieCard(
                           .map((show) => {
                             const isPathe = show.chain === "pathe";
                             const bgColor = isPathe ? "#f59e0b" : "#3b82f6";
+                            const timeStr = formatTime(show.startDate);
+                            const ariaLabel = show.ticketingUrl
+                              ? `Book tickets for ${timeStr} showing of ${film.title} at ${data.theater.name}`
+                              : `${timeStr} showing at ${data.theater.name} - tickets unavailable`;
                             return (
                               <a
                                 key={show.id}
                                 href={show.ticketingUrl || "#"}
                                 target={show.ticketingUrl ? "_blank" : "_self"}
                                 rel="noopener noreferrer"
+                                aria-label={ariaLabel}
                                 style={{
                                   padding: "4px 10px",
                                   backgroundColor: bgColor,
@@ -352,7 +367,7 @@ export default function MovieCard(
                                   display: "inline-block",
                                 }}
                               >
-                                {formatTime(show.startDate)}
+                                {timeStr}
                               </a>
                             );
                           })}
