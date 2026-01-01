@@ -2,10 +2,9 @@
 import { Handlers } from "$fresh/server.ts";
 import { geocodeLocation } from "../../utils/geocoding.ts";
 
-// NS API Configuration
-const NS_API_KEY = Deno.env.get("NS_API_KEY") || "";
-const NS_API_BASE =
-  "https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3";
+// Google Maps Routes API Configuration
+const GOOGLE_MAPS_API_KEY = Deno.env.get("GOOGLE_MAPS_API_KEY") || "";
+const GOOGLE_ROUTES_API_BASE = "https://routes.googleapis.com/directions/v2";
 const TRAVEL_TIME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const GEOCODE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -25,15 +24,23 @@ interface TravelTimeResponse {
   cached: boolean;
 }
 
-interface NSTrip {
-  legs: Array<{
-    origin: { plannedDateTime: string };
-    destination: { plannedDateTime: string };
-  }>;
+interface GoogleRoutesLocation {
+  latLng: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
-interface NSTripsResponse {
-  trips?: NSTrip[];
+interface GoogleRoutesLeg {
+  duration: string; // Duration in format like "123s"
+}
+
+interface GoogleRoute {
+  legs: GoogleRoutesLeg[];
+}
+
+interface GoogleRoutesResponse {
+  routes: GoogleRoute[];
 }
 
 // Deno KV for caching
@@ -50,61 +57,84 @@ async function getKv(): Promise<Deno.Kv | null> {
   }
 }
 
-// Fetch travel time from NS API using coordinates (door-to-door)
-async function fetchNSTravelTimeWithCoords(
+// Fetch travel time from Google Routes API using coordinates
+async function fetchGoogleMapsTravelTime(
   fromLat: string,
   fromLng: string,
   toLat: string,
   toLng: string,
 ): Promise<number | null> {
-  if (!NS_API_KEY) {
-    console.warn("NS_API_KEY not configured");
+  if (!GOOGLE_MAPS_API_KEY) {
+    console.warn("GOOGLE_MAPS_API_KEY not configured");
     return null;
   }
 
   try {
-    const url = `${NS_API_BASE}/trips?` +
-      `originLat=${fromLat}&` +
-      `originLng=${fromLng}&` +
-      `originWalk=true&` +
-      `destinationLat=${toLat}&` +
-      `destinationLng=${toLng}&` +
-      `destinationWalk=true`;
+    const url = `${GOOGLE_ROUTES_API_BASE}:computeRoutes`;
+
+    const requestBody = {
+      origin: {
+        location: {
+          latLng: {
+            latitude: parseFloat(fromLat),
+            longitude: parseFloat(fromLng),
+          },
+        },
+      },
+      destination: {
+        location: {
+          latLng: {
+            latitude: parseFloat(toLat),
+            longitude: parseFloat(toLng),
+          },
+        },
+      },
+      travelMode: "TRANSIT",
+      computeAlternativeRoutes: false,
+    };
 
     const response = await fetch(url, {
+      method: "POST",
       headers: {
-        "Ocp-Apim-Subscription-Key": NS_API_KEY,
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        "X-Goog-FieldMask": "routes.duration,routes.legs.duration",
       },
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
-      console.error(`NS API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(
+        `Google Routes API error: ${response.status} ${response.statusText}`,
+        errorText,
+      );
       return null;
     }
 
-    const data: NSTripsResponse = await response.json();
+    const data: GoogleRoutesResponse = await response.json();
 
-    // Get the first trip (usually the fastest/next available)
-    const firstTrip = data.trips?.[0];
-    if (!firstTrip || !firstTrip.legs || firstTrip.legs.length === 0) {
-      console.warn("No trips found in NS API response");
+    // Get the first route (usually the best option)
+    const firstRoute = data.routes?.[0];
+    if (!firstRoute || !firstRoute.legs || firstRoute.legs.length === 0) {
+      console.warn("No routes found in Google Routes response");
       return null;
     }
 
-    // Calculate total journey duration from first leg departure to last leg arrival
-    const firstLeg = firstTrip.legs[0];
-    const lastLeg = firstTrip.legs[firstTrip.legs.length - 1];
+    // Sum up duration from all legs
+    let totalDurationSeconds = 0;
+    for (const leg of firstRoute.legs) {
+      // Parse duration string like "123s" to seconds
+      const seconds = parseInt(leg.duration.replace("s", ""));
+      totalDurationSeconds += seconds;
+    }
 
-    const departure = new Date(firstLeg.origin.plannedDateTime);
-    const arrival = new Date(lastLeg.destination.plannedDateTime);
-
-    // Calculate duration in minutes, always round up
-    const durationMs = arrival.getTime() - departure.getTime();
-    const durationMinutes = Math.ceil(durationMs / (1000 * 60));
+    // Convert to minutes and round up
+    const durationMinutes = Math.ceil(totalDurationSeconds / 60);
 
     return durationMinutes;
   } catch (e) {
-    console.error("NS API fetch failed:", e);
+    console.error("Google Routes API fetch failed:", e);
     return null;
   }
 }
@@ -258,14 +288,14 @@ export const handler: Handlers = {
           }
         }
 
-        // Fetch travel time from NS API with coordinates
-        duration = await fetchNSTravelTimeWithCoords(fromLat, fromLng, toLat, toLng);
+        // Fetch travel time from Google Maps API with coordinates
+        duration = await fetchGoogleMapsTravelTime(fromLat, fromLng, toLat, toLng);
         cached = false;
 
         if (duration === null) {
           return new Response(
             JSON.stringify({
-              error: "Could not fetch travel time from NS API",
+              error: "Could not fetch travel time from Google Maps API",
             }),
             { status: 500, headers: { "Content-Type": "application/json" } },
           );

@@ -6,6 +6,7 @@ import * as $_path_ from "./routes/[...path].tsx";
 import * as $_app from "./routes/_app.tsx";
 import * as $api_cineboxd from "./routes/api/cineboxd.ts";
 import * as $api_cron_refresh_cache from "./routes/api/cron/refresh-cache.ts";
+import * as $api_geocode_place_details from "./routes/api/geocode/place-details.ts";
 import * as $api_shortlink from "./routes/api/shortlink.ts";
 import * as $api_travel_time from "./routes/api/travel-time.ts";
 import * as $index from "./routes/index.tsx";
@@ -22,6 +23,7 @@ const manifest = {
     "./routes/_app.tsx": $_app,
     "./routes/api/cineboxd.ts": $api_cineboxd,
     "./routes/api/cron/refresh-cache.ts": $api_cron_refresh_cache,
+    "./routes/api/geocode/place-details.ts": $api_geocode_place_details,
     "./routes/api/shortlink.ts": $api_shortlink,
     "./routes/api/travel-time.ts": $api_travel_time,
     "./routes/index.tsx": $index,

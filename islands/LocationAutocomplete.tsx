@@ -8,6 +8,19 @@ interface LocationAutocompleteProps {
   placeholder?: string;
 }
 
+// Get place details from Google Places API
+async function fetchPlaceDetails(placeId: string): Promise<{ lat: string; lon: string } | null> {
+  try {
+    const response = await fetch(`/api/geocode/place-details?place_id=${encodeURIComponent(placeId)}`);
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.error("[Place Details] Failed:", error);
+  }
+  return null;
+}
+
 export default function LocationAutocomplete({
   value,
   onChange,
@@ -73,11 +86,30 @@ export default function LocationAutocomplete({
   };
 
   // Handle suggestion selection
-  const handleSelectSuggestion = (suggestion: GeocodingResult) => {
+  const handleSelectSuggestion = async (suggestion: GeocodingResult) => {
     onChange(suggestion.display_name);
-    onSelect(suggestion);
     setShowSuggestions(false);
     setSuggestions([]);
+
+    // If place_id is available, fetch coordinates
+    if (suggestion.place_id) {
+      setIsLoading(true);
+      const coords = await fetchPlaceDetails(suggestion.place_id);
+      setIsLoading(false);
+
+      if (coords) {
+        onSelect({
+          ...suggestion,
+          lat: coords.lat,
+          lon: coords.lon,
+        });
+      } else {
+        console.error("Failed to get coordinates for selected location");
+        onSelect(suggestion); // Pass without coords, will geocode later
+      }
+    } else {
+      onSelect(suggestion);
+    }
   };
 
   // Handle keyboard navigation
