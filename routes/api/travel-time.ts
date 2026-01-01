@@ -36,6 +36,7 @@ interface GoogleRoutesLeg {
 }
 
 interface GoogleRoute {
+  duration: string; // Total duration in format like "123s"
   legs: GoogleRoutesLeg[];
 }
 
@@ -116,18 +117,14 @@ async function fetchGoogleMapsTravelTime(
 
     // Get the first route (usually the best option)
     const firstRoute = data.routes?.[0];
-    if (!firstRoute || !firstRoute.legs || firstRoute.legs.length === 0) {
+    if (!firstRoute || !firstRoute.duration) {
       console.warn("No routes found in Google Routes response");
       return null;
     }
 
-    // Sum up duration from all legs
-    let totalDurationSeconds = 0;
-    for (const leg of firstRoute.legs) {
-      // Parse duration string like "123s" to seconds
-      const seconds = parseInt(leg.duration.replace("s", ""));
-      totalDurationSeconds += seconds;
-    }
+    // Use the total route duration (includes walking, waiting, and transit)
+    // Parse duration string like "123s" to seconds
+    const totalDurationSeconds = parseInt(firstRoute.duration.replace("s", ""));
 
     // Convert to minutes and round up
     const durationMinutes = Math.ceil(totalDurationSeconds / 60);

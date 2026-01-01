@@ -908,8 +908,8 @@ export default function MovieList({ listPath }: MovieListProps) {
               padding: "24px",
               maxWidth: "500px",
               width: "90%",
-              maxHeight: "80vh",
-              overflow: "auto",
+              maxHeight: "600px",
+              overflow: "visible",
               border: "1px solid #2f3336",
             }}
             onClick={(e) => e.stopPropagation()}
