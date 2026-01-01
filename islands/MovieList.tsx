@@ -150,9 +150,8 @@ export default function MovieList({ listPath }: MovieListProps) {
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Initialize from URL params on mount (client-side only)
+  // Initialize from URL params on mount
   useEffect(() => {
-    if (!IS_BROWSER) return;
 
     const params = new URLSearchParams(globalThis.location.search);
     const urlStartDate = params.get("startDate");
@@ -170,14 +169,12 @@ export default function MovieList({ listPath }: MovieListProps) {
 
   // Load user location from localStorage on mount
   useEffect(() => {
-    if (!IS_BROWSER) return;
     const saved = localStorage.getItem("cineboxd_user_location");
     if (saved) setUserLocation(saved);
   }, []);
 
   // Save user location to localStorage when changed
   useEffect(() => {
-    if (!IS_BROWSER) return;
     if (userLocation) {
       localStorage.setItem("cineboxd_user_location", userLocation);
     } else {
@@ -187,7 +184,6 @@ export default function MovieList({ listPath }: MovieListProps) {
 
   // Handle click outside to close dropdowns
   useEffect(() => {
-    if (!IS_BROWSER) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -207,7 +203,6 @@ export default function MovieList({ listPath }: MovieListProps) {
 
   // URL synchronization (filters only, not username)
   useEffect(() => {
-    if (!IS_BROWSER) return;
 
     const params = new URLSearchParams();
     if (startDate) params.set("startDate", startDate);
@@ -234,7 +229,7 @@ export default function MovieList({ listPath }: MovieListProps) {
 
   // Fetch travel times when user location or showtimes change
   useEffect(() => {
-    if (!IS_BROWSER || !userLocation.trim() || showtimes.length === 0) {
+    if (!userLocation.trim() || showtimes.length === 0) {
       setTravelTimes(new Map());
       return;
     }
