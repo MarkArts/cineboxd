@@ -542,8 +542,8 @@ const fetchPatheShowtimes = async (
       console.log("Pathé: TMDB_API_KEY not set, skipping metadata enrichment");
     }
 
-    // Generate dates for next 90 days (3 months, balance between coverage and API calls)
-    const dates = generateDateRange(90);
+    // Generate dates for next 30 days (1 month, balance between coverage and API calls)
+    const dates = generateDateRange(30);
     const shows: Show[] = [];
 
     // Fetch showtimes for each matched film from each cinema
@@ -711,32 +711,21 @@ const fetchCinevilleShowtimes = async (
       return [];
     }
 
+    console.log(`Cineville: found ${productionIds.data.films.data.length} matching production IDs`);
+
     const productionIdList = productionIds.data.films.data
       .map((x) => `"${x.id}"`)
       .join(",");
 
     const currentDate = new Date().toISOString();
-    // Limit to next 3 months
-    const threeMonthsFromNow = new Date();
-    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
-    const endDate = threeMonthsFromNow.toISOString();
-
-    const PAGE_SIZE = 999;
-    const allShows: any[] = [];
-    let offset = 0;
-    let hasMore = true;
-
-    // Paginate through all results
-    while (hasMore) {
-      const showtimesQuery = JSON.stringify({
-        query: `{
-  showtimes(page: {limit: ${PAGE_SIZE}, offset: ${offset}}, filters:  {
+    const showtimesQuery = JSON.stringify({
+      query: `{
+  showtimes(page: {limit: 999}, filters:  {
      productionId:  {
         in: [${productionIdList}]
      }
       startDate:  {
-        gt: "${currentDate}",
-        lt: "${endDate}"
+        gt: "${currentDate}"
      }
   }) {
     data {
@@ -762,52 +751,33 @@ const fetchCinevilleShowtimes = async (
     }
   }
 }`,
-      });
+    });
 
-      const response = await fetch("https://cineville.nl/api/graphql", {
-        method: "POST",
-        body: showtimesQuery,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-        },
-      });
+    const response = await fetch("https://cineville.nl/api/graphql", {
+      method: "POST",
+      body: showtimesQuery,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(
-          `Cineville showtimes query failed: ${await response.text()}`,
-        );
-      }
-
-      const result = await response.json();
-      const shows = result?.data?.showtimes?.data || [];
-
-      if (shows.length === 0) {
-        hasMore = false;
-      } else {
-        allShows.push(...shows);
-        offset += shows.length;
-
-        // Stop if we got fewer results than page size (last page)
-        if (shows.length < PAGE_SIZE) {
-          hasMore = false;
-        }
-      }
-
-      // Safety limit: max 5 pages (4995 showtimes)
-      if (offset >= PAGE_SIZE * 5) {
-        console.log(`Cineville: reached safety limit at ${offset} showtimes`);
-        hasMore = false;
-      }
+    if (!response.ok) {
+      throw new Error(
+        `Cineville showtimes query failed: ${await response.text()}`,
+      );
     }
 
-    console.log(`Cineville: fetched ${allShows.length} showtimes across ${Math.ceil(offset / PAGE_SIZE)} pages`);
+    const result = await response.json();
+    const shows = result?.data?.showtimes?.data || [];
+
+    console.log(`Cineville: fetched ${shows.length} showtimes`);
 
     // Find films missing poster or directors for TMDB enrichment
     const filmsNeedingEnrichment = new Map<
       string,
       { needsPoster: boolean; needsDirectors: boolean }
     >();
-    for (const show of allShows) {
+    for (const show of shows) {
       const title = show.film?.title;
       if (!title) continue;
       const needsPoster = !show.film?.poster?.url;
@@ -838,7 +808,7 @@ const fetchCinevilleShowtimes = async (
     }
 
     // Add chain identifier and enrich with TMDB data
-    return allShows.map((show: Show) => {
+    return shows.map((show: Show) => {
       const enriched = { ...show, chain: "cineville" as const };
       const title = show.film?.title;
       const tmdb = title ? tmdbMetadataMap.get(title) : null;
