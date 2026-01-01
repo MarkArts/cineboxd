@@ -341,7 +341,7 @@ export default function MovieCard(
                           )
                           .map((show) => {
                             const isPathe = show.chain === "pathe";
-                            const bgColor = isPathe ? "#f59e0b" : "#1d4ed8";
+                            const bgColor = isPathe ? "#c2410c" : "#1d4ed8";
                             const timeStr = formatTime(show.startDate);
                             const ariaLabel = show.ticketingUrl
                               ? `Book tickets for ${timeStr} showing of ${film.title} at ${data.theater.name}`
