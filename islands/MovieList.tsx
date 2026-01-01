@@ -258,15 +258,17 @@ export default function MovieList({ listPath }: MovieListProps) {
     }
   }, [startDate, endDate, selectedCities, selectedTheaters, selectedFilms]);
 
-  // Get cached travel times from localStorage
+  // Get cached travel times from localStorage (v2 cache key)
   const getCachedTravelTimes = (
     location: string,
   ): Map<string, number> | null => {
     try {
-      const cached = localStorage.getItem(`travel_times_${location}`);
+      const cached = localStorage.getItem(`travel_times_v2_${location}`);
       if (cached) {
         const parsed = JSON.parse(cached);
-        return new Map(Object.entries(parsed));
+        const map = new Map(Object.entries(parsed));
+        console.log(`[Cache] Loaded ${map.size} cached travel times for ${location}`);
+        return map;
       }
     } catch (e) {
       console.error("Failed to load cached travel times:", e);
@@ -274,11 +276,12 @@ export default function MovieList({ listPath }: MovieListProps) {
     return null;
   };
 
-  // Save travel times to localStorage
+  // Save travel times to localStorage (v2 cache key)
   const saveTravelTimesToCache = (location: string, times: Map<string, number>) => {
     try {
       const obj = Object.fromEntries(times);
-      localStorage.setItem(`travel_times_${location}`, JSON.stringify(obj));
+      localStorage.setItem(`travel_times_v2_${location}`, JSON.stringify(obj));
+      console.log(`[Cache] Saved ${times.size} travel times to localStorage`);
     } catch (e) {
       console.error("Failed to save travel times to cache:", e);
     }
@@ -1103,41 +1106,6 @@ export default function MovieList({ listPath }: MovieListProps) {
               Share
             </button>
           </div>
-
-          {/* Location Button */}
-          <button
-            type="button"
-            onClick={() => setShowLocationModal(true)}
-            style={{
-              marginLeft: "auto",
-              padding: "6px 12px",
-              backgroundColor: activeLocation ? "#1d4ed8" : "#1e293b",
-              border: "1px solid #2f3336",
-              borderRadius: "6px",
-              color: activeLocation ? "white" : "#9ca3af",
-              fontSize: "13px",
-              fontWeight: "500",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            {activeLocation || "Set Location"}
-          </button>
         </div>
 
         {/* Travel Time Error Banner */}
@@ -1560,6 +1528,54 @@ export default function MovieList({ listPath }: MovieListProps) {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Location Filter */}
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(true)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #2f3336",
+                  backgroundColor: activeLocation ? "#1d4ed8" : "#0f1419",
+                  color: activeLocation ? "white" : "#e1e8ed",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  maxWidth: "180px",
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {activeLocation
+                    ? (activeLocation.length > 14
+                      ? activeLocation.substring(0, 14) + "..."
+                      : activeLocation)
+                    : "Set Location"}
+                </span>
+              </button>
             </div>
           </div>
         </div>
