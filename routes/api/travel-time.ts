@@ -10,7 +10,7 @@ const TRAVEL_TIME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface TravelTimeRequest {
   fromLocation: string; // User's location (city or station name)
-  toCity: string; // Cinema city
+  toTheater: string; // Theater name (e.g., "Pathé Arena")
 }
 
 interface TravelTimeResponse {
@@ -134,23 +134,25 @@ export const handler: Handlers = {
     try {
       const body: TravelTimeRequest = await req.json();
 
-      if (!body.fromLocation || !body.toCity) {
+      if (!body.fromLocation || !body.toTheater) {
         return new Response(
-          JSON.stringify({ error: "fromLocation and toCity are required" }),
+          JSON.stringify({
+            error: "fromLocation and toTheater are required",
+          }),
           { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
       // Resolve locations to station codes
       const fromStation = getStationMapping(body.fromLocation);
-      const toStation = getStationMapping(body.toCity);
+      const toStation = getStationMapping(body.toTheater);
 
       if (!fromStation || !toStation) {
         return new Response(
           JSON.stringify({
             error: "Could not resolve location to station",
             fromLocation: body.fromLocation,
-            toCity: body.toCity,
+            toTheater: body.toTheater,
           }),
           { status: 400, headers: { "Content-Type": "application/json" } },
         );

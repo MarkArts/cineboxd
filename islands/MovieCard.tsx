@@ -329,7 +329,7 @@ export default function MovieCard(
                             >
                               • {data.theater.address.city}
                             </span>
-                            {travelTimes?.has(data.theater.address.city) && (
+                            {travelTimes?.has(data.theater.name) && (
                               <span
                                 style={{
                                   fontSize: "12px",
@@ -337,9 +337,7 @@ export default function MovieCard(
                                   fontWeight: "normal",
                                 }}
                               >
-                                {" "}({travelTimes.get(
-                                  data.theater.address.city,
-                                )}min)
+                                {" "}({travelTimes.get(data.theater.name)}min)
                               </span>
                             )}
                           </>

@@ -242,35 +242,38 @@ export default function MovieList({ listPath }: MovieListProps) {
     const fetchTravelTimes = async () => {
       setIsFetchingTravelTimes(true);
 
-      // Extract unique cities from showtimes
-      const cities = new Set<string>();
+      // Extract unique theater names from showtimes
+      const theaters = new Set<string>();
       showtimes.forEach((show) => {
-        if (show.theater?.address?.city) {
-          cities.add(show.theater.address.city);
+        if (show.theater?.name) {
+          theaters.add(show.theater.name);
         }
       });
 
-      // Fetch travel times for each city in parallel
+      // Fetch travel times for each theater in parallel
       const times = new Map<string, number>();
 
       await Promise.all(
-        Array.from(cities).map(async (city) => {
+        Array.from(theaters).map(async (theaterName) => {
           try {
             const response = await fetch("/api/travel-time", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 fromLocation: userLocation,
-                toCity: city,
+                toTheater: theaterName,
               }),
             });
 
             if (response.ok) {
               const data = await response.json();
-              times.set(city, data.duration);
+              times.set(theaterName, data.duration);
             }
           } catch (e) {
-            console.error(`Travel time fetch failed for ${city}:`, e);
+            console.error(
+              `Travel time fetch failed for ${theaterName}:`,
+              e,
+            );
           }
         }),
       );
