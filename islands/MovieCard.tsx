@@ -86,6 +86,10 @@ export default function MovieCard(
   { film, showsByDateAndTheater, isFirstCard = false, travelTimes }:
     MovieCardProps,
 ) {
+  // Debug logging
+  if (travelTimes && travelTimes.size > 0) {
+    console.log(`[MovieCard ${film.title}] Received travel times for ${travelTimes.size} theaters`);
+  }
   // Memoize sorting and grouping to avoid recalculation on every render
   const showsByDate = useMemo(() => {
     const sortedEntries = [...showsByDateAndTheater].sort((a, b) => {

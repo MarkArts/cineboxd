@@ -268,6 +268,7 @@ export default function MovieList({ listPath }: MovieListProps) {
     }
 
     const fetchTravelTimesLazy = async () => {
+      console.log(`[Travel Times] Starting fetch for location: ${activeLocation}`);
       setIsFetchingTravelTimes(true);
 
       // Extract unique theater names from showtimes
@@ -278,12 +279,15 @@ export default function MovieList({ listPath }: MovieListProps) {
         }
       });
 
+      console.log(`[Travel Times] Found ${theaters.size} unique theaters:`, Array.from(theaters));
+
       // Check if we have cached times for this location
       const cachedTimes = getCachedTravelTimes(activeLocation);
       const times = cachedTimes || new Map<string, number>();
 
       // Set cached times immediately if available
       if (cachedTimes) {
+        console.log(`[Travel Times] Using cached data for ${cachedTimes.size} theaters`);
         setTravelTimes(new Map(cachedTimes));
       }
 
@@ -291,9 +295,11 @@ export default function MovieList({ listPath }: MovieListProps) {
       for (const theaterName of Array.from(theaters)) {
         // Skip if already cached
         if (times.has(theaterName)) {
+          console.log(`[Travel Times] Skipping cached theater: ${theaterName}`);
           continue;
         }
 
+        console.log(`[Travel Times] Fetching travel time for: ${theaterName}`);
         try {
           const response = await fetch("/api/travel-time", {
             method: "POST",
@@ -306,6 +312,7 @@ export default function MovieList({ listPath }: MovieListProps) {
 
           if (response.ok) {
             const data = await response.json();
+            console.log(`[Travel Times] Got ${data.duration}min for ${theaterName}`);
             times.set(theaterName, data.duration);
 
             // Update state incrementally as each theater loads
@@ -313,15 +320,18 @@ export default function MovieList({ listPath }: MovieListProps) {
 
             // Save to cache after each successful fetch
             saveTravelTimesToCache(activeLocation, times);
+          } else {
+            console.error(`[Travel Times] API error for ${theaterName}:`, response.status);
           }
         } catch (e) {
           console.error(
-            `Travel time fetch failed for ${theaterName}:`,
+            `[Travel Times] Fetch failed for ${theaterName}:`,
             e,
           );
         }
       }
 
+      console.log(`[Travel Times] Finished. Total times loaded: ${times.size}`);
       setIsFetchingTravelTimes(false);
     };
 
