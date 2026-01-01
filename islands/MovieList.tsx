@@ -141,6 +141,7 @@ export default function MovieList({ listPath }: MovieListProps) {
     new Map(),
   );
   const [isFetchingTravelTimes, setIsFetchingTravelTimes] = useState(false);
+  const [travelTimeError, setTravelTimeError] = useState<string | null>(null);
 
   // Cycle through loading messages
   useEffect(() => {
@@ -270,6 +271,8 @@ export default function MovieList({ listPath }: MovieListProps) {
     const fetchTravelTimesLazy = async () => {
       console.log(`[Travel Times] Starting fetch for location: ${activeLocation}`);
       setIsFetchingTravelTimes(true);
+      setTravelTimeError(null); // Clear any previous error
+      let errorShown = false; // Track if we've shown an error
 
       // Extract unique theater names from showtimes
       const theaters = new Set<string>();
@@ -322,12 +325,26 @@ export default function MovieList({ listPath }: MovieListProps) {
             saveTravelTimesToCache(activeLocation, times);
           } else {
             console.error(`[Travel Times] API error for ${theaterName}:`, response.status);
+
+            // Show error only once
+            if (!errorShown) {
+              const errorData = await response.json().catch(() => ({}));
+              const errorMsg = errorData.error || `Failed to fetch travel times (${response.status})`;
+              setTravelTimeError(errorMsg);
+              errorShown = true;
+            }
           }
         } catch (e) {
           console.error(
             `[Travel Times] Fetch failed for ${theaterName}:`,
             e,
           );
+
+          // Show error only once
+          if (!errorShown) {
+            setTravelTimeError("Network error: Unable to fetch travel times. Please check your connection.");
+            errorShown = true;
+          }
         }
       }
 
@@ -1093,7 +1110,66 @@ export default function MovieList({ listPath }: MovieListProps) {
             </svg>
             {activeLocation || "Set Location"}
           </button>
+        </div>
 
+        {/* Travel Time Error Banner */}
+        {travelTimeError && (
+          <div
+            style={{
+              backgroundColor: "#7f1d1d",
+              borderBottom: "1px solid #dc2626",
+              padding: "12px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#fca5a5"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span style={{ color: "#fca5a5", fontSize: "14px" }}>
+                {travelTimeError}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTravelTimeError(null)}
+              aria-label="Dismiss error"
+              style={{
+                padding: "4px 8px",
+                backgroundColor: "transparent",
+                border: "1px solid #dc2626",
+                borderRadius: "4px",
+                color: "#fca5a5",
+                cursor: "pointer",
+                fontSize: "13px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <div
+          class="header-controls"
+          style={{
+            padding: "12px 16px",
+          }}
+        >
           <div
             class="header-row"
             style={{
