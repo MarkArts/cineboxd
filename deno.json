@@ -37,6 +37,7 @@
     "jsxImportSource": "preact"
   },
   "unstable": [
-    "kv"
+    "kv",
+    "cron"
   ]
 }
