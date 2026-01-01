@@ -21,7 +21,7 @@ function verifyBasicAuth(request: Request): boolean {
     const base64Credentials = authHeader.slice(6);
     const credentials = atob(base64Credentials);
     const [username, password] = credentials.split(":");
-    const expectedPassword = Deno.env.get("CRON_PASSWORD") || "admin";
+    const expectedPassword = Deno.env.get("ADMIN_PASSWORD") || "admin";
     return username === "admin" && password === expectedPassword;
   } catch {
     return false;
