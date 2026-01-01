@@ -542,8 +542,8 @@ const fetchPatheShowtimes = async (
       console.log("Pathé: TMDB_API_KEY not set, skipping metadata enrichment");
     }
 
-    // Generate dates for next 3 days (balance between coverage and API calls)
-    const dates = generateDateRange(3);
+    // Generate dates for next 14 days (balance between coverage and API calls)
+    const dates = generateDateRange(14);
     const shows: Show[] = [];
 
     // Fetch showtimes for each matched film from each cinema
@@ -718,7 +718,7 @@ const fetchCinevilleShowtimes = async (
     const currentDate = new Date().toISOString();
     const showtimesQuery = JSON.stringify({
       query: `{
-  showtimes(page: {limit: 999}, filters:  {
+  showtimes(page: {limit: 3000}, filters:  {
      productionId:  {
         in: [${productionIdList}]
      }
