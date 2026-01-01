@@ -11,6 +11,7 @@ import * as $api_travel_time from "./routes/api/travel-time.ts";
 import * as $index from "./routes/index.tsx";
 import * as $s_code_ from "./routes/s/[code].tsx";
 import * as $HomePage from "./islands/HomePage.tsx";
+import * as $LocationAutocomplete from "./islands/LocationAutocomplete.tsx";
 import * as $MovieCard from "./islands/MovieCard.tsx";
 import * as $MovieList from "./islands/MovieList.tsx";
 import { type Manifest } from "$fresh/server.ts";
@@ -28,6 +29,7 @@ const manifest = {
   },
   islands: {
     "./islands/HomePage.tsx": $HomePage,
+    "./islands/LocationAutocomplete.tsx": $LocationAutocomplete,
     "./islands/MovieCard.tsx": $MovieCard,
     "./islands/MovieList.tsx": $MovieList,
   },

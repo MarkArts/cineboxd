@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { IS_BROWSER } from "$fresh/runtime.ts";
 import MovieCard from "./MovieCard.tsx";
-import { CITY_STATION_MAPPINGS } from "../data/station-mappings.ts";
+import LocationAutocomplete from "./LocationAutocomplete.tsx";
+import type { GeocodingResult } from "../utils/geocoding.ts";
 
 // Witty loading messages
 const LOADING_MESSAGES = [
@@ -135,8 +136,14 @@ export default function MovieList({ listPath }: MovieListProps) {
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [userLocationText, setUserLocationText] = useState<string>("");
+  const [userLocationCoords, setUserLocationCoords] = useState<
+    { lat: string; lon: string } | null
+  >(null);
   const [activeLocation, setActiveLocation] = useState<string>("");
+  const [activeLocationCoords, setActiveLocationCoords] = useState<
+    { lat: string; lon: string } | null
+  >(null);
   const [travelTimes, setTravelTimes] = useState<Map<string, number>>(
     new Map(),
   );
@@ -173,21 +180,38 @@ export default function MovieList({ listPath }: MovieListProps) {
 
   // Load active location from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("cineboxd_user_location");
-    if (saved) {
-      setActiveLocation(saved);
-      setSelectedLocation(saved);
+    const savedText = localStorage.getItem("cineboxd_user_location_text");
+    const savedCoords = localStorage.getItem("cineboxd_user_location_coords");
+
+    if (savedText) {
+      setActiveLocation(savedText);
+      setUserLocationText(savedText);
+    }
+
+    if (savedCoords) {
+      try {
+        const coords = JSON.parse(savedCoords);
+        setActiveLocationCoords(coords);
+        setUserLocationCoords(coords);
+      } catch (e) {
+        console.error("Failed to parse saved coords:", e);
+      }
     }
   }, []);
 
   // Save active location to localStorage when changed
   useEffect(() => {
-    if (activeLocation) {
-      localStorage.setItem("cineboxd_user_location", activeLocation);
+    if (activeLocation && activeLocationCoords) {
+      localStorage.setItem("cineboxd_user_location_text", activeLocation);
+      localStorage.setItem(
+        "cineboxd_user_location_coords",
+        JSON.stringify(activeLocationCoords),
+      );
     } else {
-      localStorage.removeItem("cineboxd_user_location");
+      localStorage.removeItem("cineboxd_user_location_text");
+      localStorage.removeItem("cineboxd_user_location_coords");
     }
-  }, [activeLocation]);
+  }, [activeLocation, activeLocationCoords]);
 
   // Handle click outside to close dropdowns
   useEffect(() => {
@@ -262,14 +286,20 @@ export default function MovieList({ listPath }: MovieListProps) {
 
   // Fetch travel times lazily (one by one) when location and showtimes exist
   useEffect(() => {
-    if (!activeLocation.trim() || showtimes.length === 0) {
+    if (
+      !activeLocation.trim() ||
+      !activeLocationCoords ||
+      showtimes.length === 0
+    ) {
       setTravelTimes(new Map());
       setIsFetchingTravelTimes(false);
       return;
     }
 
     const fetchTravelTimesLazy = async () => {
-      console.log(`[Travel Times] Starting fetch for location: ${activeLocation}`);
+      console.log(
+        `[Travel Times] Starting fetch for location: ${activeLocation}`,
+      );
       setIsFetchingTravelTimes(true);
       setTravelTimeError(null); // Clear any previous error
       let errorShown = false; // Track if we've shown an error
@@ -278,11 +308,17 @@ export default function MovieList({ listPath }: MovieListProps) {
       const theaterMap = new Map<string, string>(); // name -> city
       showtimes.forEach((show) => {
         if (show.theater?.name) {
-          theaterMap.set(show.theater.name, show.theater.address?.city || "");
+          theaterMap.set(
+            show.theater.name,
+            show.theater.address?.city || "",
+          );
         }
       });
 
-      console.log(`[Travel Times] Found ${theaterMap.size} unique theaters:`, Array.from(theaterMap.keys()));
+      console.log(
+        `[Travel Times] Found ${theaterMap.size} unique theaters:`,
+        Array.from(theaterMap.keys()),
+      );
 
       // Check if we have cached times for this location
       const cachedTimes = getCachedTravelTimes(activeLocation);
@@ -290,27 +326,40 @@ export default function MovieList({ listPath }: MovieListProps) {
 
       // Set cached times immediately if available
       if (cachedTimes) {
-        console.log(`[Travel Times] Using cached data for ${cachedTimes.size} theaters`);
+        console.log(
+          `[Travel Times] Using cached data for ${cachedTimes.size} theaters`,
+        );
         setTravelTimes(new Map(cachedTimes));
       }
 
       // Fetch missing theater times lazily (one at a time)
-      for (const [theaterName, theaterCity] of Array.from(theaterMap.entries())) {
+      for (
+        const [theaterName, theaterCity] of Array.from(theaterMap.entries())
+      ) {
         // Skip if already cached
         if (times.has(theaterName)) {
           console.log(`[Travel Times] Skipping cached theater: ${theaterName}`);
           continue;
         }
 
-        console.log(`[Travel Times] Fetching travel time for: ${theaterName} in ${theaterCity}`);
+        // Build theater address for geocoding
+        const theaterAddress = theaterCity
+          ? `${theaterName}, ${theaterCity}, Netherlands`
+          : `${theaterName}, Netherlands`;
+
+        console.log(
+          `[Travel Times] Fetching travel time for: ${theaterAddress}`,
+        );
         try {
           const response = await fetch("/api/travel-time", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               fromLocation: activeLocation,
-              toTheater: theaterName,
-              toCity: theaterCity, // Pass city as fallback
+              fromLat: activeLocationCoords.lat,
+              fromLng: activeLocationCoords.lon,
+              toLocation: theaterAddress,
+              // Let API geocode theater address
             }),
           });
 
@@ -325,12 +374,16 @@ export default function MovieList({ listPath }: MovieListProps) {
             // Save to cache after each successful fetch
             saveTravelTimesToCache(activeLocation, times);
           } else {
-            console.error(`[Travel Times] API error for ${theaterName}:`, response.status);
+            console.error(
+              `[Travel Times] API error for ${theaterName}:`,
+              response.status,
+            );
 
             // Show error only once
             if (!errorShown) {
               const errorData = await response.json().catch(() => ({}));
-              const errorMsg = errorData.error || `Failed to fetch travel times (${response.status})`;
+              const errorMsg = errorData.error ||
+                `Failed to fetch travel times (${response.status})`;
               setTravelTimeError(errorMsg);
               errorShown = true;
             }
@@ -343,18 +396,22 @@ export default function MovieList({ listPath }: MovieListProps) {
 
           // Show error only once
           if (!errorShown) {
-            setTravelTimeError("Network error: Unable to fetch travel times. Please check your connection.");
+            setTravelTimeError(
+              "Network error: Unable to fetch travel times. Please check your connection.",
+            );
             errorShown = true;
           }
         }
       }
 
-      console.log(`[Travel Times] Finished. Total times loaded: ${times.size}`);
+      console.log(
+        `[Travel Times] Finished. Total times loaded: ${times.size}`,
+      );
       setIsFetchingTravelTimes(false);
     };
 
     fetchTravelTimesLazy();
-  }, [activeLocation, showtimes]);
+  }, [activeLocation, activeLocationCoords, showtimes]);
 
   const fetchShowtimes = async () => {
     if (!listPath.trim()) return;
@@ -874,59 +931,22 @@ export default function MovieList({ listPath }: MovieListProps) {
                 margin: "0 0 16px 0",
               }}
             >
-              Choose your starting location to see travel times to each theater
+              Enter your starting location (address, station, or landmark)
             </p>
 
             <div style={{ marginBottom: "16px" }}>
-              {Object.entries(CITY_STATION_MAPPINGS).map(([city, mapping]) => (
-                <button
-                  key={city}
-                  type="button"
-                  onClick={() => setSelectedLocation(city)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    padding: "12px 16px",
-                    marginBottom: "8px",
-                    backgroundColor:
-                      selectedLocation === city ? "#1d4ed8" : "#0f1419",
-                    border: `1px solid ${
-                      selectedLocation === city ? "#1d4ed8" : "#2f3336"
-                    }`,
-                    borderRadius: "6px",
-                    color: selectedLocation === city ? "white" : "#e1e8ed",
-                    fontSize: "14px",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selectedLocation !== city) {
-                      (e.target as HTMLElement).style.backgroundColor =
-                        "#1e293b";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedLocation !== city) {
-                      (e.target as HTMLElement).style.backgroundColor =
-                        "#0f1419";
-                    }
-                  }}
-                >
-                  <div style={{ fontWeight: "500" }}>{city}</div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: selectedLocation === city
-                        ? "rgba(255,255,255,0.8)"
-                        : "#9ca3af",
-                      marginTop: "4px",
-                    }}
-                  >
-                    {mapping.stationName}
-                  </div>
-                </button>
-              ))}
+              <LocationAutocomplete
+                value={userLocationText}
+                onChange={setUserLocationText}
+                onSelect={(location: GeocodingResult) => {
+                  setUserLocationText(location.display_name);
+                  setUserLocationCoords({
+                    lat: location.lat,
+                    lon: location.lon,
+                  });
+                }}
+                placeholder="e.g., Amsterdam Centraal, Kalverstraat 92"
+              />
             </div>
 
             <div
@@ -938,7 +958,11 @@ export default function MovieList({ listPath }: MovieListProps) {
             >
               <button
                 type="button"
-                onClick={() => setShowLocationModal(false)}
+                onClick={() => {
+                  setShowLocationModal(false);
+                  setUserLocationText(activeLocation);
+                  setUserLocationCoords(activeLocationCoords);
+                }}
                 style={{
                   padding: "8px 16px",
                   backgroundColor: "transparent",
@@ -956,7 +980,9 @@ export default function MovieList({ listPath }: MovieListProps) {
                   type="button"
                   onClick={() => {
                     setActiveLocation("");
-                    setSelectedLocation("");
+                    setActiveLocationCoords(null);
+                    setUserLocationText("");
+                    setUserLocationCoords(null);
                     setShowLocationModal(false);
                   }}
                   style={{
@@ -976,22 +1002,25 @@ export default function MovieList({ listPath }: MovieListProps) {
               <button
                 type="button"
                 onClick={() => {
-                  if (selectedLocation) {
-                    setActiveLocation(selectedLocation);
+                  if (userLocationText.trim()) {
+                    setActiveLocation(userLocationText);
+                    setActiveLocationCoords(userLocationCoords);
                     setShowLocationModal(false);
                   }
                 }}
-                disabled={!selectedLocation}
+                disabled={!userLocationText.trim()}
                 style={{
                   padding: "8px 16px",
-                  backgroundColor: selectedLocation ? "#1d4ed8" : "#374151",
+                  backgroundColor: userLocationText.trim()
+                    ? "#1d4ed8"
+                    : "#374151",
                   color: "white",
                   border: "none",
                   borderRadius: "6px",
-                  cursor: selectedLocation ? "pointer" : "not-allowed",
+                  cursor: userLocationText.trim() ? "pointer" : "not-allowed",
                   fontSize: "14px",
                   fontWeight: "500",
-                  opacity: selectedLocation ? 1 : 0.5,
+                  opacity: userLocationText.trim() ? 1 : 0.5,
                 }}
               >
                 Set Location

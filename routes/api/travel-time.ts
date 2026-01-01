@@ -1,23 +1,27 @@
 /// <reference lib="deno.unstable" />
 import { Handlers } from "$fresh/server.ts";
-import { getStationMapping } from "../../data/station-mappings.ts";
+import { geocodeLocation } from "../../utils/geocoding.ts";
 
 // NS API Configuration
 const NS_API_KEY = Deno.env.get("NS_API_KEY") || "";
 const NS_API_BASE =
   "https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3";
 const TRAVEL_TIME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const GEOCODE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 interface TravelTimeRequest {
-  fromLocation: string; // User's location (city or station name)
-  toTheater: string; // Theater name (e.g., "Pathé Arena")
-  toCity?: string; // Fallback city if theater not found in mappings
+  fromLocation: string; // User's location text (e.g., "Amsterdam Centraal")
+  fromLat?: string; // Pre-geocoded coordinates (optional)
+  fromLng?: string;
+  toLocation: string; // Theater address (e.g., "Pathé Arena, Amsterdam, Netherlands")
+  toLat?: string; // Pre-geocoded coordinates (optional)
+  toLng?: string;
 }
 
 interface TravelTimeResponse {
   duration: number; // Travel time in minutes (rounded up)
-  fromStation: string;
-  toStation: string;
+  fromLocation: string;
+  toLocation: string;
   cached: boolean;
 }
 
@@ -46,10 +50,12 @@ async function getKv(): Promise<Deno.Kv | null> {
   }
 }
 
-// Fetch travel time from NS API
-async function fetchNSTravelTime(
-  fromCode: string,
-  toCode: string,
+// Fetch travel time from NS API using coordinates (door-to-door)
+async function fetchNSTravelTimeWithCoords(
+  fromLat: string,
+  fromLng: string,
+  toLat: string,
+  toLng: string,
 ): Promise<number | null> {
   if (!NS_API_KEY) {
     console.warn("NS_API_KEY not configured");
@@ -57,7 +63,14 @@ async function fetchNSTravelTime(
   }
 
   try {
-    const url = `${NS_API_BASE}/trips?fromStation=${fromCode}&toStation=${toCode}`;
+    const url = `${NS_API_BASE}/trips?` +
+      `originLat=${fromLat}&` +
+      `originLng=${fromLng}&` +
+      `originWalk=true&` +
+      `destinationLat=${toLat}&` +
+      `destinationLng=${toLng}&` +
+      `destinationWalk=true`;
+
     const response = await fetch(url, {
       headers: {
         "Ocp-Apim-Subscription-Key": NS_API_KEY,
@@ -96,15 +109,52 @@ async function fetchNSTravelTime(
   }
 }
 
+// Get cached geocoding result
+async function getCachedGeocode(
+  query: string,
+): Promise<{ lat: string; lon: string } | null> {
+  const store = await getKv();
+  if (!store) return null;
+
+  const key = ["geocode", query];
+  const result = await store.get<{
+    lat: string;
+    lon: string;
+    timestamp: number;
+  }>(key);
+
+  if (!result.value) return null;
+
+  // Check if cache expired
+  if (Date.now() - result.value.timestamp >= GEOCODE_CACHE_TTL_MS) {
+    return null;
+  }
+
+  return { lat: result.value.lat, lon: result.value.lon };
+}
+
+// Set cached geocoding result
+async function setCachedGeocode(
+  query: string,
+  lat: string,
+  lon: string,
+): Promise<void> {
+  const store = await getKv();
+  if (!store) return;
+
+  const key = ["geocode", query];
+  await store.set(key, { lat, lon, timestamp: Date.now() });
+}
+
 // Get cached travel time
 async function getCachedTravelTime(
-  fromCode: string,
-  toCode: string,
+  fromLoc: string,
+  toLoc: string,
 ): Promise<number | null> {
   const store = await getKv();
   if (!store) return null;
 
-  const key = ["travel_time", fromCode, toCode];
+  const key = ["travel_time_v2", fromLoc, toLoc];
   const result = await store.get<{ duration: number; timestamp: number }>(key);
 
   if (!result.value) return null;
@@ -119,14 +169,14 @@ async function getCachedTravelTime(
 
 // Set cached travel time
 async function setCachedTravelTime(
-  fromCode: string,
-  toCode: string,
+  fromLoc: string,
+  toLoc: string,
   duration: number,
 ): Promise<void> {
   const store = await getKv();
   if (!store) return;
 
-  const key = ["travel_time", fromCode, toCode];
+  const key = ["travel_time_v2", fromLoc, toLoc];
   await store.set(key, { duration, timestamp: Date.now() });
 }
 
@@ -135,63 +185,81 @@ export const handler: Handlers = {
     try {
       const body: TravelTimeRequest = await req.json();
 
-      if (!body.fromLocation || !body.toTheater) {
+      if (!body.fromLocation || !body.toLocation) {
         return new Response(
           JSON.stringify({
-            error: "fromLocation and toTheater are required",
+            error: "fromLocation and toLocation are required",
           }),
           { status: 400, headers: { "Content-Type": "application/json" } },
         );
-      }
-
-      // Resolve locations to station codes
-      const fromStation = getStationMapping(body.fromLocation);
-      let toStation = getStationMapping(body.toTheater);
-
-      // If theater not found, try fallback to city
-      if (!toStation && body.toCity) {
-        toStation = getStationMapping(body.toCity);
-      }
-
-      if (!fromStation || !toStation) {
-        return new Response(
-          JSON.stringify({
-            error: "Could not resolve location to station",
-            fromLocation: body.fromLocation,
-            toTheater: body.toTheater,
-            toCity: body.toCity,
-          }),
-          { status: 400, headers: { "Content-Type": "application/json" } },
-        );
-      }
-
-      // Don't calculate if same station
-      if (fromStation.stationCode === toStation.stationCode) {
-        const response: TravelTimeResponse = {
-          duration: 0,
-          fromStation: fromStation.stationName,
-          toStation: toStation.stationName,
-          cached: true,
-        };
-        return new Response(JSON.stringify(response), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
       }
 
       // Check cache first
       let duration = await getCachedTravelTime(
-        fromStation.stationCode,
-        toStation.stationCode,
+        body.fromLocation,
+        body.toLocation,
       );
       let cached = true;
 
-      // Fetch from API if not cached
       if (duration === null) {
-        duration = await fetchNSTravelTime(
-          fromStation.stationCode,
-          toStation.stationCode,
-        );
+        // Get origin coordinates
+        let fromLat = body.fromLat;
+        let fromLng = body.fromLng;
+
+        if (!fromLat || !fromLng) {
+          // Try cache first
+          const cachedFrom = await getCachedGeocode(body.fromLocation);
+          if (cachedFrom) {
+            fromLat = cachedFrom.lat;
+            fromLng = cachedFrom.lon;
+          } else {
+            // Geocode the origin
+            const fromResult = await geocodeLocation(body.fromLocation);
+            if (!fromResult) {
+              return new Response(
+                JSON.stringify({
+                  error: "Could not geocode origin location",
+                  location: body.fromLocation,
+                }),
+                { status: 400, headers: { "Content-Type": "application/json" } },
+              );
+            }
+            fromLat = fromResult.lat;
+            fromLng = fromResult.lon;
+            await setCachedGeocode(body.fromLocation, fromLat, fromLng);
+          }
+        }
+
+        // Get destination coordinates
+        let toLat = body.toLat;
+        let toLng = body.toLng;
+
+        if (!toLat || !toLng) {
+          // Try cache first
+          const cachedTo = await getCachedGeocode(body.toLocation);
+          if (cachedTo) {
+            toLat = cachedTo.lat;
+            toLng = cachedTo.lon;
+          } else {
+            // Geocode the destination
+            const toResult = await geocodeLocation(body.toLocation);
+            if (!toResult) {
+              return new Response(
+                JSON.stringify({
+                  error: "Could not geocode destination location",
+                  location: body.toLocation,
+                }),
+                { status: 400, headers: { "Content-Type": "application/json" } },
+              );
+            }
+            toLat = toResult.lat;
+            toLng = toResult.lon;
+            await setCachedGeocode(body.toLocation, toLat, toLng);
+          }
+        }
+
+        // Fetch travel time from NS API with coordinates
+        duration = await fetchNSTravelTimeWithCoords(fromLat, fromLng, toLat, toLng);
         cached = false;
 
         if (duration === null) {
@@ -204,17 +272,13 @@ export const handler: Handlers = {
         }
 
         // Cache the result
-        await setCachedTravelTime(
-          fromStation.stationCode,
-          toStation.stationCode,
-          duration,
-        );
+        await setCachedTravelTime(body.fromLocation, body.toLocation, duration);
       }
 
       const response: TravelTimeResponse = {
         duration,
-        fromStation: fromStation.stationName,
-        toStation: toStation.stationName,
+        fromLocation: body.fromLocation,
+        toLocation: body.toLocation,
         cached,
       };
 
