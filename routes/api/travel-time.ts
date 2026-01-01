@@ -94,6 +94,8 @@ async function fetchGoogleMapsTravelTime(
       computeAlternativeRoutes: false,
     };
 
+    console.log(`[Google Routes API] Request: ${fromLat},${fromLng} -> ${toLat},${toLng}`);
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -122,12 +124,20 @@ async function fetchGoogleMapsTravelTime(
       return null;
     }
 
+    // Debug: Log the full response to verify what we're getting
+    console.log("[Google Routes API] Full route data:", JSON.stringify({
+      duration: firstRoute.duration,
+      legs: firstRoute.legs?.map(leg => ({ duration: leg.duration }))
+    }));
+
     // Use the total route duration (includes walking, waiting, and transit)
     // Parse duration string like "123s" to seconds
     const totalDurationSeconds = parseInt(firstRoute.duration.replace("s", ""));
 
     // Convert to minutes and round up
     const durationMinutes = Math.ceil(totalDurationSeconds / 60);
+
+    console.log(`[Google Routes API] Calculated: ${totalDurationSeconds}s = ${durationMinutes}min`);
 
     return durationMinutes;
   } catch (e) {
