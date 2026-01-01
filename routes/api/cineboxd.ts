@@ -171,16 +171,25 @@ async function setCache<T>(key: string, data: T): Promise<void> {
       chunks.push(json.slice(i, i + CHUNK_SIZE));
     }
 
-    // Store chunks atomically
-    const ops = store.atomic();
-    ops.set(["cache", key, "meta"], {
+    // Store metadata first
+    await store.set(["cache", key, "meta"], {
       chunks: chunks.length,
       timestamp: Date.now(),
     });
-    for (let i = 0; i < chunks.length; i++) {
-      ops.set(["cache", key, "chunk", i], chunks[i]);
+
+    // Store chunks in batches to avoid atomic operation size limit (800KB)
+    // With 60KB chunks, batch size of 10 = ~600KB per operation (safe margin)
+    const BATCH_SIZE = 10;
+    for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+      const ops = store.atomic();
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
+
+      for (let i = batchStart; i < batchEnd; i++) {
+        ops.set(["cache", key, "chunk", i], chunks[i]);
+      }
+
+      await ops.commit();
     }
-    await ops.commit();
 
     console.log(
       `Cached ${key} (${chunks.length} chunks, ${json.length} bytes)`,
