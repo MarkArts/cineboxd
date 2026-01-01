@@ -335,17 +335,32 @@ export default function MovieList({ listPath }: MovieListProps) {
         setTravelTimes(new Map(cachedTimes));
       }
 
-      // Fetch missing theater times lazily (one at a time)
-      for (
-        const [theaterName, theaterCity] of Array.from(theaterMap.entries())
-      ) {
-        // Skip if already cached
+      // Get theaters that need fetching (not in cache)
+      const theatersToFetch: Array<[string, string]> = Array.from(
+        theaterMap.entries(),
+      ).filter(([theaterName]) => {
         if (times.has(theaterName)) {
           console.log(`[Travel Times] Skipping cached theater: ${theaterName}`);
-          continue;
+          return false;
         }
+        return true;
+      });
 
-        // Build theater address for geocoding
+      if (theatersToFetch.length === 0) {
+        console.log("[Travel Times] All theaters already cached");
+        setIsFetchingTravelTimes(false);
+        return;
+      }
+
+      console.log(
+        `[Travel Times] Fetching ${theatersToFetch.length} theaters in parallel batches of 10`,
+      );
+
+      // Helper function to fetch a single theater
+      const fetchTheater = async (
+        theaterName: string,
+        theaterCity: string,
+      ): Promise<void> => {
         const theaterAddress = theaterCity
           ? `${theaterName}, ${theaterCity}, Netherlands`
           : `${theaterName}, Netherlands`;
@@ -353,8 +368,8 @@ export default function MovieList({ listPath }: MovieListProps) {
         console.log(
           `[Travel Times] Fetching travel time for: ${theaterAddress}`,
         );
+
         try {
-          // Build query params
           const params = new URLSearchParams({
             fromLocation: activeLocation,
             fromLat: activeLocationCoords.lat,
@@ -368,19 +383,12 @@ export default function MovieList({ listPath }: MovieListProps) {
             const data = await response.json();
             console.log(`[Travel Times] Got ${data.duration}min for ${theaterName}`);
             times.set(theaterName, data.duration);
-
-            // Update state incrementally as each theater loads
-            setTravelTimes(new Map(times));
-
-            // Save to cache after each successful fetch
-            saveTravelTimesToCache(activeLocation, times);
           } else {
             console.error(
               `[Travel Times] API error for ${theaterName}:`,
               response.status,
             );
 
-            // Show error only once
             if (!errorShown) {
               const errorData = await response.json().catch(() => ({}));
               const errorMsg = errorData.error ||
@@ -395,7 +403,6 @@ export default function MovieList({ listPath }: MovieListProps) {
             e,
           );
 
-          // Show error only once
           if (!errorShown) {
             setTravelTimeError(
               "Network error: Unable to fetch travel times. Please check your connection.",
@@ -403,6 +410,31 @@ export default function MovieList({ listPath }: MovieListProps) {
             errorShown = true;
           }
         }
+      };
+
+      // Process theaters in batches of 10
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < theatersToFetch.length; i += BATCH_SIZE) {
+        const batch = theatersToFetch.slice(i, i + BATCH_SIZE);
+        console.log(
+          `[Travel Times] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${
+            Math.ceil(theatersToFetch.length / BATCH_SIZE)
+          } (${batch.length} theaters)`,
+        );
+
+        // Fetch all theaters in this batch in parallel
+        await Promise.all(
+          batch.map(([theaterName, theaterCity]) =>
+            fetchTheater(theaterName, theaterCity)
+          ),
+        );
+
+        // Update state after each batch completes
+        setTravelTimes(new Map(times));
+        saveTravelTimesToCache(activeLocation, times);
+        console.log(
+          `[Travel Times] Batch complete. Total loaded: ${times.size}/${theaterMap.size}`,
+        );
       }
 
       console.log(
