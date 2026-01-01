@@ -5,6 +5,7 @@
 import * as $_path_ from "./routes/[...path].tsx";
 import * as $_app from "./routes/_app.tsx";
 import * as $api_cineboxd from "./routes/api/cineboxd.ts";
+import * as $api_cron_refresh_cache from "./routes/api/cron/refresh-cache.ts";
 import * as $api_shortlink from "./routes/api/shortlink.ts";
 import * as $index from "./routes/index.tsx";
 import * as $s_code_ from "./routes/s/[code].tsx";
@@ -18,6 +19,7 @@ const manifest = {
     "./routes/[...path].tsx": $_path_,
     "./routes/_app.tsx": $_app,
     "./routes/api/cineboxd.ts": $api_cineboxd,
+    "./routes/api/cron/refresh-cache.ts": $api_cron_refresh_cache,
     "./routes/api/shortlink.ts": $api_shortlink,
     "./routes/index.tsx": $index,
     "./routes/s/[code].tsx": $s_code_,

@@ -2,7 +2,7 @@
 import { Handlers } from "$fresh/server.ts";
 
 // Cache TTLs
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours for showtimes
+const CACHE_TTL_MS = 36 * 60 * 60 * 1000; // 36 hours for showtimes
 const METADATA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for TMDB metadata
 const CHUNK_SIZE = 60000; // 60KB chunks (under 64KB limit)
 
@@ -852,6 +852,76 @@ const fetchCinevilleShowtimes = async (
   }
 };
 
+/**
+ * Fetch and cache showtimes for a given Letterboxd list
+ * This is the core logic extracted from the HTTP handler for reuse in cron jobs
+ * @param listPath - The Letterboxd list path (e.g., "105424/watchlist")
+ * @returns The cached/fresh showtime data
+ */
+export async function fetchAndCacheShowtimes(listPath: string) {
+  try {
+    // Check cache first
+    const cacheKey = `showtimes:v18:${listPath}`;
+    const cached = await getCached<Record<string, unknown>>(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT for ${listPath}`);
+      return cached;
+    }
+
+    console.log(`Cache MISS for ${listPath}, fetching fresh data...`);
+
+    // Fetch Letterboxd list
+    const listData = (await getLetterboxdList(listPath)) as {
+      title: string;
+    }[];
+    const filmTitles = listData.map((x) => x.title);
+
+    console.log(
+      `Fetching showtimes for ${filmTitles.length} films from "${listPath}"`,
+    );
+
+    // Fetch from both sources in parallel
+    const [cinevilleResult, patheResult] = await Promise.allSettled([
+      fetchCinevilleShowtimes(filmTitles),
+      fetchPatheShowtimes(filmTitles),
+    ]);
+
+    // Extract results
+    const cinevilleShows = cinevilleResult.status === "fulfilled"
+      ? cinevilleResult.value
+      : [];
+    const patheShows = patheResult.status === "fulfilled"
+      ? patheResult.value
+      : [];
+
+    // Log failures
+    if (cinevilleResult.status === "rejected") {
+      console.error("Cineville fetch rejected:", cinevilleResult.reason);
+    }
+    if (patheResult.status === "rejected") {
+      console.error("Pathé fetch rejected:", patheResult.reason);
+    }
+
+    // Merge all showtimes
+    const allShows = [...cinevilleShows, ...patheShows];
+
+    console.log(
+      `Total: ${allShows.length} showtimes (Cineville: ${cinevilleShows.length}, Pathé: ${patheShows.length})`,
+    );
+
+    // Format response
+    const resp = { data: { showtimes: { data: allShows } } };
+
+    // Store in cache
+    await setCache(cacheKey, resp);
+
+    return resp;
+  } catch (error) {
+    console.error(`Error fetching showtimes for ${listPath}:`, error);
+    throw error;
+  }
+}
+
 export const handler: Handlers = {
   async GET(req) {
     try {
@@ -871,70 +941,12 @@ export const handler: Handlers = {
         listPath = "105424/watchlist"; // Default
       }
 
-      // Check cache first (v10 with list path support)
-      const cacheKey = `showtimes:v17:${listPath}`;
-      const cached = await getCached<Record<string, unknown>>(cacheKey);
-      if (cached) {
-        const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
-        return new Response(JSON.stringify(cached), {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control":
-              `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
-            "Surrogate-Control": `max-age=${CACHE_SECONDS}`,
-            "Vary": "Accept-Encoding",
-            "X-Cache": "HIT",
-          },
-        });
-      }
+      // Use the extracted function
+      const resp = await fetchAndCacheShowtimes(listPath);
 
-      // Fetch Letterboxd list
-      const listData = (await getLetterboxdList(listPath)) as {
-        title: string;
-      }[];
-      const filmTitles = listData.map((x) => x.title);
-
-      console.log(
-        `Fetching showtimes for ${filmTitles.length} films from "${listPath}"`,
-      );
-
-      // Fetch from both sources in parallel with graceful degradation
-      const [cinevilleResult, patheResult] = await Promise.allSettled([
-        fetchCinevilleShowtimes(filmTitles),
-        fetchPatheShowtimes(filmTitles),
-      ]);
-
-      // Extract results, defaulting to empty arrays on failure
-      const cinevilleShows = cinevilleResult.status === "fulfilled"
-        ? cinevilleResult.value
-        : [];
-      const patheShows = patheResult.status === "fulfilled"
-        ? patheResult.value
-        : [];
-
-      // Log any failures
-      if (cinevilleResult.status === "rejected") {
-        console.error("Cineville fetch rejected:", cinevilleResult.reason);
-      }
-      if (patheResult.status === "rejected") {
-        console.error("Pathé fetch rejected:", patheResult.reason);
-      }
-
-      // Merge all showtimes
-      const allShows = [...cinevilleShows, ...patheShows];
-
-      console.log(
-        `Total: ${allShows.length} showtimes (Cineville: ${cinevilleShows.length}, Pathé: ${patheShows.length})`,
-      );
-
-      // Format response to match expected structure
-      const resp = { data: { showtimes: { data: allShows } } };
-
-      // Store in cache
-      await setCache(cacheKey, resp);
-
-      const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
+      const CACHE_SECONDS = 36 * 60 * 60; // 36 hours
+      const cacheKey = `showtimes:v18:${listPath}`;
+      const wasCached = (await getCached<Record<string, unknown>>(cacheKey)) === resp;
 
       return new Response(JSON.stringify(resp), {
         status: 200,
@@ -944,7 +956,7 @@ export const handler: Handlers = {
             `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
           "Surrogate-Control": `max-age=${CACHE_SECONDS}`,
           "Vary": "Accept-Encoding",
-          "X-Cache": "MISS",
+          "X-Cache": wasCached ? "HIT" : "MISS",
         },
       });
     } catch (error) {
