@@ -932,7 +932,9 @@ export default function MovieList({ listPath }: MovieListProps) {
                 margin: "0 0 16px 0",
               }}
             >
-              Enter your starting location (address, station, or landmark)
+              Enter your starting location (address, station, or landmark).
+              Once selected, OV (public transport) travel times will be displayed
+              next to each theater.
             </p>
 
             <div style={{ marginBottom: "16px" }}>
@@ -1044,138 +1046,65 @@ export default function MovieList({ listPath }: MovieListProps) {
         <div
           class="header-controls"
           style={{
-            display: "flex",
-            alignItems: "center",
             padding: "12px 16px",
-            gap: "12px",
-            flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <a
-              href="/"
-              style={{
-                margin: 0,
-                fontSize: "20px",
-                fontWeight: "bold",
-                color: "#3b82f6",
-                textDecoration: "none",
-              }}
-            >
-              Cineboxd
-            </a>
-            <span style={{ color: "#9ca3af", fontSize: "14px" }}>·</span>
-            <span style={{ color: "#e1e8ed", fontSize: "14px" }}>
-              {formatListName(listPath)}
-            </span>
-            <button
-              type="button"
-              onClick={handleShare}
-              aria-label="Share this list"
-              style={{
-                marginLeft: "8px",
-                padding: "6px 12px",
-                backgroundColor: "#1d4ed8",
-                border: "none",
-                borderRadius: "6px",
-                color: "white",
-                fontSize: "13px",
-                fontWeight: "500",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="18" cy="5" r="3" />
-                <circle cx="6" cy="12" r="3" />
-                <circle cx="18" cy="19" r="3" />
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-              </svg>
-              Share
-            </button>
-          </div>
-        </div>
-
-        {/* Travel Time Error Banner */}
-        {travelTimeError && (
-          <div
-            style={{
-              backgroundColor: "#7f1d1d",
-              borderBottom: "1px solid #dc2626",
-              padding: "12px 16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#fca5a5"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <a
+                href="/"
+                style={{
+                  margin: 0,
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  color: "#3b82f6",
+                  textDecoration: "none",
+                }}
               >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span style={{ color: "#fca5a5", fontSize: "14px" }}>
-                {travelTimeError}
+                Cineboxd
+              </a>
+              <span style={{ color: "#9ca3af", fontSize: "14px" }}>·</span>
+              <span style={{ color: "#e1e8ed", fontSize: "14px" }}>
+                {formatListName(listPath)}
               </span>
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label="Share this list"
+                style={{
+                  marginLeft: "8px",
+                  padding: "6px 12px",
+                  backgroundColor: "#1d4ed8",
+                  border: "none",
+                  borderRadius: "6px",
+                  color: "white",
+                  fontSize: "13px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                Share
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setTravelTimeError(null)}
-              aria-label="Dismiss error"
-              style={{
-                padding: "4px 8px",
-                backgroundColor: "transparent",
-                border: "1px solid #dc2626",
-                borderRadius: "4px",
-                color: "#fca5a5",
-                cursor: "pointer",
-                fontSize: "13px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        <div
-          class="header-controls"
-          style={{
-            padding: "12px 16px",
-          }}
-        >
-          <div
-            class="header-row"
-            style={{
-              flex: 1,
-              display: "flex",
-              gap: "8px",
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
             {/* Date Shortcuts */}
             <div style={{ display: "flex", gap: "4px" }}>
               <button
@@ -1579,6 +1508,58 @@ export default function MovieList({ listPath }: MovieListProps) {
             </div>
           </div>
         </div>
+
+        {/* Travel Time Error Banner */}
+        {travelTimeError && (
+          <div
+            style={{
+              backgroundColor: "#7f1d1d",
+              borderBottom: "1px solid #dc2626",
+              padding: "12px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#fca5a5"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span style={{ color: "#fca5a5", fontSize: "14px" }}>
+                {travelTimeError}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTravelTimeError(null)}
+              aria-label="Dismiss error"
+              style={{
+                padding: "4px 8px",
+                backgroundColor: "transparent",
+                border: "1px solid #dc2626",
+                borderRadius: "4px",
+                color: "#fca5a5",
+                cursor: "pointer",
+                fontSize: "13px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
@@ -1713,6 +1694,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                   )}
                   isFirstCard={index === 0}
                   travelTimes={travelTimes}
+                  userLocation={activeLocation}
                 />
               </div>
             ))}

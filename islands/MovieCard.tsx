@@ -65,6 +65,7 @@ interface MovieCardProps {
   showsByDateAndTheater: [string, TheaterData][];
   isFirstCard?: boolean;
   travelTimes?: Map<string, number>;
+  userLocation?: string;
 }
 
 function formatTime(dateString: string): string {
@@ -83,7 +84,7 @@ function formatDuration(minutes: number): string {
 }
 
 export default function MovieCard(
-  { film, showsByDateAndTheater, isFirstCard = false, travelTimes }:
+  { film, showsByDateAndTheater, isFirstCard = false, travelTimes, userLocation }:
     MovieCardProps,
 ) {
   // Debug logging
@@ -334,15 +335,40 @@ export default function MovieCard(
                               • {data.theater.address.city}
                             </span>
                             {travelTimes?.has(data.theater.name) && (
-                              <span
-                                style={{
-                                  fontSize: "12px",
-                                  color: "#9ca3af",
-                                  fontWeight: "normal",
-                                }}
-                              >
-                                {" "}({travelTimes.get(data.theater.name)}min)
-                              </span>
+                              <>
+                                {" "}
+                                <a
+                                  href={userLocation
+                                    ? `https://www.google.com/maps/dir/?api=1&origin=${
+                                      encodeURIComponent(userLocation)
+                                    }&destination=${
+                                      encodeURIComponent(
+                                        `${data.theater.name}, ${data.theater.address.city}, Netherlands`,
+                                      )
+                                    }&travelmode=transit`
+                                    : `https://www.google.com/maps/search/${
+                                      encodeURIComponent(
+                                        `${data.theater.name}, ${data.theater.address.city}, Netherlands`,
+                                      )
+                                    }`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: "12px",
+                                    color: "#3b82f6",
+                                    fontWeight: "normal",
+                                    textDecoration: "none",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    (e.target as HTMLAnchorElement).style.textDecoration = "underline";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    (e.target as HTMLAnchorElement).style.textDecoration = "none";
+                                  }}
+                                >
+                                  ({travelTimes.get(data.theater.name)}min)
+                                </a>
+                              </>
                             )}
                           </>
                         )}
