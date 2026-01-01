@@ -542,8 +542,8 @@ const fetchPatheShowtimes = async (
       console.log("Pathé: TMDB_API_KEY not set, skipping metadata enrichment");
     }
 
-    // Generate dates for next 30 days (1 month, balance between coverage and API calls)
-    const dates = generateDateRange(30);
+    // Generate dates for next 15 days (balance between coverage and API calls)
+    const dates = generateDateRange(15);
     const shows: Show[] = [];
 
     // Fetch showtimes for each matched film from each cinema
@@ -872,7 +872,7 @@ export const handler: Handlers = {
       }
 
       // Check cache first (v10 with list path support)
-      const cacheKey = `showtimes:v16:${listPath}`;
+      const cacheKey = `showtimes:v17:${listPath}`;
       const cached = await getCached<Record<string, unknown>>(cacheKey);
       if (cached) {
         const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
