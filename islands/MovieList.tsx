@@ -98,6 +98,8 @@ interface Show {
 
 interface MovieListProps {
   listPath: string;
+  initialShowtimes?: Show[];
+  initialError?: string;
 }
 
 // Format list path for display
@@ -115,10 +117,14 @@ function formatListName(listPath: string): string {
   return listPath;
 }
 
-export default function MovieList({ listPath }: MovieListProps) {
-  const [showtimes, setShowtimes] = useState<Show[]>([]);
+export default function MovieList({
+  listPath,
+  initialShowtimes = [],
+  initialError = null,
+}: MovieListProps) {
+  const [showtimes, setShowtimes] = useState<Show[]>(initialShowtimes);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
   const [startDate, setStartDate] = useState("");
@@ -238,10 +244,13 @@ export default function MovieList({ listPath }: MovieListProps) {
   };
 
   useEffect(() => {
+    // Skip client-side fetch if we already have server-rendered data
+    if (initialShowtimes.length > 0) return;
+
     if (IS_BROWSER) {
       fetchShowtimes();
     }
-  }, [listPath]);
+  }, [listPath, initialShowtimes]);
 
   // Extract unique filter options (filtered by date range and selections)
   const { uniqueCities, uniqueTheaters, uniqueFilms, filteredCities, filteredTheaters, filteredFilms } =
