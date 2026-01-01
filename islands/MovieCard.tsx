@@ -83,6 +83,19 @@ function formatDuration(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
+function formatTravelTime(minutes: number): string {
+  if (!minutes) return "";
+  if (minutes < 60) {
+    return `${minutes}min`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${mins}min`;
+}
+
 export default function MovieCard(
   { film, showsByDateAndTheater, isFirstCard = false, travelTimes, userLocation }:
     MovieCardProps,
@@ -370,7 +383,7 @@ export default function MovieCard(
                                     (e.target as HTMLAnchorElement).style.textDecoration = "none";
                                   }}
                                 >
-                                  {travelTimes.get(data.theater.name)}min
+                                  {formatTravelTime(travelTimes.get(data.theater.name)!)}
                                 </a>)
                               </span>
                             )}
