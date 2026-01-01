@@ -542,8 +542,8 @@ const fetchPatheShowtimes = async (
       console.log("Pathé: TMDB_API_KEY not set, skipping metadata enrichment");
     }
 
-    // Generate dates for next 14 days (balance between coverage and API calls)
-    const dates = generateDateRange(14);
+    // Generate dates for next 90 days (3 months, balance between coverage and API calls)
+    const dates = generateDateRange(90);
     const shows: Show[] = [];
 
     // Fetch showtimes for each matched film from each cinema
@@ -716,14 +716,27 @@ const fetchCinevilleShowtimes = async (
       .join(",");
 
     const currentDate = new Date().toISOString();
-    const showtimesQuery = JSON.stringify({
-      query: `{
-  showtimes(page: {limit: 3000}, filters:  {
+    // Limit to next 3 months
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+    const endDate = threeMonthsFromNow.toISOString();
+
+    const PAGE_SIZE = 999;
+    const allShows: any[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    // Paginate through all results
+    while (hasMore) {
+      const showtimesQuery = JSON.stringify({
+        query: `{
+  showtimes(page: {limit: ${PAGE_SIZE}, offset: ${offset}}, filters:  {
      productionId:  {
         in: [${productionIdList}]
      }
       startDate:  {
-        gt: "${currentDate}"
+        gt: "${currentDate}",
+        lt: "${endDate}"
      }
   }) {
     data {
@@ -749,33 +762,52 @@ const fetchCinevilleShowtimes = async (
     }
   }
 }`,
-    });
+      });
 
-    const response = await fetch("https://cineville.nl/api/graphql", {
-      method: "POST",
-      body: showtimesQuery,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-      },
-    });
+      const response = await fetch("https://cineville.nl/api/graphql", {
+        method: "POST",
+        body: showtimesQuery,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(
-        `Cineville showtimes query failed: ${await response.text()}`,
-      );
+      if (!response.ok) {
+        throw new Error(
+          `Cineville showtimes query failed: ${await response.text()}`,
+        );
+      }
+
+      const result = await response.json();
+      const shows = result?.data?.showtimes?.data || [];
+
+      if (shows.length === 0) {
+        hasMore = false;
+      } else {
+        allShows.push(...shows);
+        offset += shows.length;
+
+        // Stop if we got fewer results than page size (last page)
+        if (shows.length < PAGE_SIZE) {
+          hasMore = false;
+        }
+      }
+
+      // Safety limit: max 5 pages (4995 showtimes)
+      if (offset >= PAGE_SIZE * 5) {
+        console.log(`Cineville: reached safety limit at ${offset} showtimes`);
+        hasMore = false;
+      }
     }
 
-    const result = await response.json();
-    const shows = result?.data?.showtimes?.data || [];
-
-    console.log(`Cineville: fetched ${shows.length} showtimes`);
+    console.log(`Cineville: fetched ${allShows.length} showtimes across ${Math.ceil(offset / PAGE_SIZE)} pages`);
 
     // Find films missing poster or directors for TMDB enrichment
     const filmsNeedingEnrichment = new Map<
       string,
       { needsPoster: boolean; needsDirectors: boolean }
     >();
-    for (const show of shows) {
+    for (const show of allShows) {
       const title = show.film?.title;
       if (!title) continue;
       const needsPoster = !show.film?.poster?.url;
@@ -806,7 +838,7 @@ const fetchCinevilleShowtimes = async (
     }
 
     // Add chain identifier and enrich with TMDB data
-    return shows.map((show: Show) => {
+    return allShows.map((show: Show) => {
       const enriched = { ...show, chain: "cineville" as const };
       const title = show.film?.title;
       const tmdb = title ? tmdbMetadataMap.get(title) : null;
@@ -854,7 +886,7 @@ export const handler: Handlers = {
       }
 
       // Check cache first (v10 with list path support)
-      const cacheKey = `showtimes:v12:${listPath}`;
+      const cacheKey = `showtimes:v14:${listPath}`;
       const cached = await getCached<Record<string, unknown>>(cacheKey);
       if (cached) {
         const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
