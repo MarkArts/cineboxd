@@ -335,8 +335,14 @@ export default function MovieCard(
                               • {data.theater.address.city}
                             </span>
                             {travelTimes?.has(data.theater.name) && (
-                              <>
-                                {" "}
+                              <span
+                                style={{
+                                  fontSize: "12px",
+                                  color: "#9ca3af",
+                                  fontWeight: "normal",
+                                }}
+                              >
+                                {" "}(
                                 <a
                                   href={userLocation
                                     ? `https://www.google.com/maps/dir/?api=1&origin=${
@@ -354,9 +360,7 @@ export default function MovieCard(
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   style={{
-                                    fontSize: "12px",
                                     color: "#3b82f6",
-                                    fontWeight: "normal",
                                     textDecoration: "none",
                                   }}
                                   onMouseEnter={(e) => {
@@ -366,9 +370,9 @@ export default function MovieCard(
                                     (e.target as HTMLAnchorElement).style.textDecoration = "none";
                                   }}
                                 >
-                                  ({travelTimes.get(data.theater.name)}min)
-                                </a>
-                              </>
+                                  {travelTimes.get(data.theater.name)}min
+                                </a>)
+                              </span>
                             )}
                           </>
                         )}
