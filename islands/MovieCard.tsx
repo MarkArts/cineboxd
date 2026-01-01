@@ -64,6 +64,7 @@ interface MovieCardProps {
   };
   showsByDateAndTheater: [string, TheaterData][];
   isFirstCard?: boolean;
+  travelTimes?: Map<string, number>;
 }
 
 function formatTime(dateString: string): string {
@@ -82,7 +83,8 @@ function formatDuration(minutes: number): string {
 }
 
 export default function MovieCard(
-  { film, showsByDateAndTheater, isFirstCard = false }: MovieCardProps,
+  { film, showsByDateAndTheater, isFirstCard = false, travelTimes }:
+    MovieCardProps,
 ) {
   // Memoize sorting and grouping to avoid recalculation on every render
   const showsByDate = useMemo(() => {
@@ -316,16 +318,31 @@ export default function MovieCard(
                       >
                         {data.theater.name}
                         {data.theater.address?.city && (
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              color: "#9ca3af",
-                              fontWeight: "normal",
-                              marginLeft: "8px",
-                            }}
-                          >
-                            • {data.theater.address.city}
-                          </span>
+                          <>
+                            <span
+                              style={{
+                                fontSize: "12px",
+                                color: "#9ca3af",
+                                fontWeight: "normal",
+                                marginLeft: "8px",
+                              }}
+                            >
+                              • {data.theater.address.city}
+                            </span>
+                            {travelTimes?.has(data.theater.address.city) && (
+                              <span
+                                style={{
+                                  fontSize: "12px",
+                                  color: "#9ca3af",
+                                  fontWeight: "normal",
+                                }}
+                              >
+                                {" "}({travelTimes.get(
+                                  data.theater.address.city,
+                                )}min)
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
 

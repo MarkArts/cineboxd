@@ -133,6 +133,11 @@ export default function MovieList({ listPath }: MovieListProps) {
   const [shortLink, setShortLink] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [userLocation, setUserLocation] = useState<string>("");
+  const [travelTimes, setTravelTimes] = useState<Map<string, number>>(
+    new Map(),
+  );
+  const [isFetchingTravelTimes, setIsFetchingTravelTimes] = useState(false);
 
   // Cycle through loading messages
   useEffect(() => {
@@ -162,6 +167,23 @@ export default function MovieList({ listPath }: MovieListProps) {
     if (urlFilms && urlFilms.length > 0) setSelectedFilms(urlFilms);
     if (urlCities && urlCities.length > 0) setSelectedCities(urlCities);
   }, []);
+
+  // Load user location from localStorage on mount
+  useEffect(() => {
+    if (!IS_BROWSER) return;
+    const saved = localStorage.getItem("cineboxd_user_location");
+    if (saved) setUserLocation(saved);
+  }, []);
+
+  // Save user location to localStorage when changed
+  useEffect(() => {
+    if (!IS_BROWSER) return;
+    if (userLocation) {
+      localStorage.setItem("cineboxd_user_location", userLocation);
+    } else {
+      localStorage.removeItem("cineboxd_user_location");
+    }
+  }, [userLocation]);
 
   // Handle click outside to close dropdowns
   useEffect(() => {
@@ -209,6 +231,56 @@ export default function MovieList({ listPath }: MovieListProps) {
       // Ignore URL update errors
     }
   }, [startDate, endDate, selectedCities, selectedTheaters, selectedFilms]);
+
+  // Fetch travel times when user location or showtimes change
+  useEffect(() => {
+    if (!IS_BROWSER || !userLocation.trim() || showtimes.length === 0) {
+      setTravelTimes(new Map());
+      return;
+    }
+
+    const fetchTravelTimes = async () => {
+      setIsFetchingTravelTimes(true);
+
+      // Extract unique cities from showtimes
+      const cities = new Set<string>();
+      showtimes.forEach((show) => {
+        if (show.theater?.address?.city) {
+          cities.add(show.theater.address.city);
+        }
+      });
+
+      // Fetch travel times for each city in parallel
+      const times = new Map<string, number>();
+
+      await Promise.all(
+        Array.from(cities).map(async (city) => {
+          try {
+            const response = await fetch("/api/travel-time", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                fromLocation: userLocation,
+                toCity: city,
+              }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              times.set(city, data.duration);
+            }
+          } catch (e) {
+            console.error(`Travel time fetch failed for ${city}:`, e);
+          }
+        }),
+      );
+
+      setTravelTimes(times);
+      setIsFetchingTravelTimes(false);
+    };
+
+    fetchTravelTimes();
+  }, [userLocation, showtimes]);
 
   const fetchShowtimes = async () => {
     if (!listPath.trim()) return;
@@ -753,6 +825,62 @@ export default function MovieList({ listPath }: MovieListProps) {
             </button>
           </div>
 
+          {/* Location Input */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginLeft: "auto",
+            }}
+          >
+            <label
+              htmlFor="user-location"
+              style={{
+                fontSize: "13px",
+                color: "#9ca3af",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Travel from:
+            </label>
+            <input
+              id="user-location"
+              type="text"
+              placeholder="Amsterdam"
+              value={userLocation}
+              onInput={(e) =>
+                setUserLocation((e.target as HTMLInputElement).value)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "4px",
+                border: "1px solid #2f3336",
+                backgroundColor: "#0f1419",
+                color: "#e1e8ed",
+                fontSize: "14px",
+                width: "150px",
+              }}
+            />
+            {userLocation && (
+              <button
+                type="button"
+                onClick={() => setUserLocation("")}
+                aria-label="Clear location"
+                style={{
+                  padding: "6px 8px",
+                  backgroundColor: "#1e293b",
+                  border: "1px solid #2f3336",
+                  borderRadius: "4px",
+                  color: "#9ca3af",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
           <div
             class="header-row"
             style={{
@@ -1251,6 +1379,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                     showsByDateAndTheater.entries(),
                   )}
                   isFirstCard={index === 0}
+                  travelTimes={travelTimes}
                 />
               </div>
             ))}
