@@ -713,16 +713,28 @@ const fetchCinevilleShowtimes = async (
 
     console.log(`Cineville: found ${productionIds.data.films.data.length} matching production IDs`);
 
-    const productionIdList = productionIds.data.films.data
-      .map((x) => `"${x.id}"`)
-      .join(",");
+    // Batch production IDs to get better coverage per film
+    // With 999 limit per query, batching ensures each film gets more showtimes
+    const BATCH_SIZE = 20; // 20 films per query = ~50 showtimes per film
+    const allShows: any[] = [];
+    const productionIdBatches: string[][] = [];
+
+    for (let i = 0; i < productionIds.data.films.data.length; i += BATCH_SIZE) {
+      const batch = productionIds.data.films.data.slice(i, i + BATCH_SIZE);
+      productionIdBatches.push(batch.map((x) => `"${x.id}"`));
+    }
+
+    console.log(`Cineville: querying ${productionIdBatches.length} batches of ${BATCH_SIZE} films each`);
 
     const currentDate = new Date().toISOString();
-    const showtimesQuery = JSON.stringify({
-      query: `{
+
+    // Fetch each batch in parallel
+    const batchPromises = productionIdBatches.map(async (productionIdList) => {
+      const showtimesQuery = JSON.stringify({
+        query: `{
   showtimes(page: {limit: 999}, filters:  {
      productionId:  {
-        in: [${productionIdList}]
+        in: [${productionIdList.join(",")}]
      }
       startDate:  {
         gt: "${currentDate}"
@@ -751,26 +763,30 @@ const fetchCinevilleShowtimes = async (
     }
   }
 }`,
+      });
+
+      const response = await fetch("https://cineville.nl/api/graphql", {
+        method: "POST",
+        body: showtimesQuery,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Cineville showtimes query failed: ${await response.text()}`,
+        );
+      }
+
+      const result = await response.json();
+      return result?.data?.showtimes?.data || [];
     });
 
-    const response = await fetch("https://cineville.nl/api/graphql", {
-      method: "POST",
-      body: showtimesQuery,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-      },
-    });
+    const batchResults = await Promise.all(batchPromises);
+    const shows = batchResults.flat();
 
-    if (!response.ok) {
-      throw new Error(
-        `Cineville showtimes query failed: ${await response.text()}`,
-      );
-    }
-
-    const result = await response.json();
-    const shows = result?.data?.showtimes?.data || [];
-
-    console.log(`Cineville: fetched ${shows.length} showtimes`);
+    console.log(`Cineville: fetched ${shows.length} showtimes across ${productionIdBatches.length} batches`);
 
     // Find films missing poster or directors for TMDB enrichment
     const filmsNeedingEnrichment = new Map<
@@ -856,7 +872,7 @@ export const handler: Handlers = {
       }
 
       // Check cache first (v10 with list path support)
-      const cacheKey = `showtimes:v15:${listPath}`;
+      const cacheKey = `showtimes:v16:${listPath}`;
       const cached = await getCached<Record<string, unknown>>(cacheKey);
       if (cached) {
         const CACHE_SECONDS = 24 * 60 * 60; // 24 hours
