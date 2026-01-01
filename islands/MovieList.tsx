@@ -219,12 +219,32 @@ export default function MovieList({ listPath }: MovieListProps) {
       const response = await fetch(
         `/api/cineboxd?listPath=${encodeURIComponent(listPath.trim())}`,
       );
-      const data = await response.json();
 
       if (!response.ok) {
-        // Use error message from API if available
+        // Try to parse error message from JSON, fallback to text
+        let errorMessage = `Failed to load list (HTTP ${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData?.error || errorMessage;
+        } catch {
+          // If JSON parsing fails, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) errorMessage = errorText;
+          } catch {
+            // Ignore, use default error message
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // JSON parsing failed on successful response - likely server issue
         throw new Error(
-          data?.error || `Failed to load list (HTTP ${response.status})`,
+          "Server returned invalid data. Please try again in a moment.",
         );
       }
 
