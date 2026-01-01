@@ -28,7 +28,7 @@ const WATCHLIST_PATHS = [
 // Calls fetchAndCacheShowtimes() directly - no HTTP overhead
 console.log("[Cron] Registering 7 staggered cache pre-warming jobs");
 
-Deno.cron("Refresh Mark's Watchlist", "0 0 * * *", async () => {
+Deno.cron("Refresh Marks Watchlist", "0 0 * * *", async () => {
   const start = Date.now();
   try {
     await fetchAndCacheShowtimes(WATCHLIST_PATHS[0]);
@@ -38,7 +38,7 @@ Deno.cron("Refresh Mark's Watchlist", "0 0 * * *", async () => {
   }
 });
 
-Deno.cron("Refresh Sight & Sound 2025", "30 3 * * *", async () => {
+Deno.cron("Refresh Sight and Sound 2025", "30 3 * * *", async () => {
   const start = Date.now();
   try {
     await fetchAndCacheShowtimes(WATCHLIST_PATHS[1]);
@@ -48,7 +48,7 @@ Deno.cron("Refresh Sight & Sound 2025", "30 3 * * *", async () => {
   }
 });
 
-Deno.cron("Refresh Sight & Sound 2024", "0 7 * * *", async () => {
+Deno.cron("Refresh Sight and Sound 2024", "0 7 * * *", async () => {
   const start = Date.now();
   try {
     await fetchAndCacheShowtimes(WATCHLIST_PATHS[2]);
@@ -88,7 +88,7 @@ Deno.cron("Refresh Movies Everyone Should Watch", "30 17 * * *", async () => {
   }
 });
 
-Deno.cron("Refresh Snautsie's Watchlist", "0 21 * * *", async () => {
+Deno.cron("Refresh Snautsies Watchlist", "0 21 * * *", async () => {
   const start = Date.now();
   try {
     await fetchAndCacheShowtimes(WATCHLIST_PATHS[6]);
