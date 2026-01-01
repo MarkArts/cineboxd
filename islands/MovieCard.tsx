@@ -12,11 +12,11 @@ function getPosterSrcSet(url: string): { src: string; srcSet: string } {
       .map((w) =>
         `${base}?w=${w}&h=${
           Math.round(w * 1.5)
-        }&fit=crop&auto=format,compress&q=75 ${w}w`
+        }&fit=crop&auto=format,compress&q=65 ${w}w`
       )
       .join(", ");
     return {
-      src: `${base}?w=200&h=300&fit=crop&auto=format,compress&q=75`,
+      src: `${base}?w=200&h=300&fit=crop&auto=format,compress&q=65`,
       srcSet,
     };
   }
@@ -63,6 +63,7 @@ interface MovieCardProps {
     directors: string[];
   };
   showsByDateAndTheater: [string, TheaterData][];
+  isFirstCard?: boolean;
 }
 
 function formatTime(dateString: string): string {
@@ -81,7 +82,7 @@ function formatDuration(minutes: number): string {
 }
 
 export default function MovieCard(
-  { film, showsByDateAndTheater }: MovieCardProps,
+  { film, showsByDateAndTheater, isFirstCard = false }: MovieCardProps,
 ) {
   // Memoize sorting and grouping to avoid recalculation on every render
   const showsByDate = useMemo(() => {
@@ -152,7 +153,8 @@ export default function MovieCard(
                 srcSet={posterUrls.srcSet || undefined}
                 sizes="(max-width: 768px) 120px, 200px"
                 alt={film.title}
-                loading="lazy"
+                loading={isFirstCard ? "eager" : "lazy"}
+                fetchpriority={isFirstCard ? "high" : undefined}
                 decoding="async"
                 width={200}
                 height={300}

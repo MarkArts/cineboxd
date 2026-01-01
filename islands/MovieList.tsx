@@ -23,8 +23,8 @@ function FilmReelSpinner() {
   return (
     <div
       style={{
-        width: "80px",
-        height: "80px",
+        width: "60px",
+        height: "60px",
         position: "relative",
         margin: "0 auto",
       }}
@@ -33,10 +33,10 @@ function FilmReelSpinner() {
       <div
         class="film-reel-spin"
         style={{
-          width: "80px",
-          height: "80px",
+          width: "60px",
+          height: "60px",
           borderRadius: "50%",
-          border: "4px solid #3b82f6",
+          border: "3px solid #3b82f6",
           position: "absolute",
           boxSizing: "border-box",
         }}
@@ -47,14 +47,14 @@ function FilmReelSpinner() {
             key={angle}
             style={{
               position: "absolute",
-              width: "12px",
-              height: "12px",
+              width: "10px",
+              height: "10px",
               backgroundColor: "#3b82f6",
               borderRadius: "50%",
               top: "50%",
               left: "50%",
               transform:
-                `rotate(${angle}deg) translateY(-30px) translateX(-6px)`,
+                `rotate(${angle}deg) translateY(-22px) translateX(-5px)`,
             }}
           />
         ))}
@@ -62,10 +62,10 @@ function FilmReelSpinner() {
         <div
           style={{
             position: "absolute",
-            width: "20px",
-            height: "20px",
+            width: "16px",
+            height: "16px",
             backgroundColor: "#0f1419",
-            border: "3px solid #3b82f6",
+            border: "2px solid #3b82f6",
             borderRadius: "50%",
             top: "50%",
             left: "50%",
@@ -1097,6 +1097,7 @@ export default function MovieList({ listPath }: MovieListProps) {
           maxWidth: "1200px",
           margin: "0 auto",
           padding: "20px",
+          minHeight: "60vh",
         }}
       >
         {isLoading && (
@@ -1106,7 +1107,7 @@ export default function MovieList({ listPath }: MovieListProps) {
             aria-busy="true"
             style={{
               textAlign: "center",
-              padding: "80px 40px",
+              padding: "40px 40px",
               color: "#9ca3af",
             }}
           >
@@ -1207,7 +1208,7 @@ export default function MovieList({ listPath }: MovieListProps) {
               gap: "16px",
             }}
           >
-            {groupedFilms.map(({ film, showsByDateAndTheater }) => (
+            {groupedFilms.map(({ film, showsByDateAndTheater }, index) => (
               <div
                 key={film.slug}
                 style={{
@@ -1220,6 +1221,7 @@ export default function MovieList({ listPath }: MovieListProps) {
                   showsByDateAndTheater={Array.from(
                     showsByDateAndTheater.entries(),
                   )}
+                  isFirstCard={index === 0}
                 />
               </div>
             ))}
