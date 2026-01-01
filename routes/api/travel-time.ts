@@ -5,7 +5,7 @@ import { geocodeLocation } from "../../utils/geocoding.ts";
 // Google Maps Routes API Configuration
 const GOOGLE_MAPS_API_KEY = Deno.env.get("GOOGLE_MAPS_API_KEY") || "";
 const GOOGLE_ROUTES_API_BASE = "https://routes.googleapis.com/directions/v2";
-const TRAVEL_TIME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TRAVEL_TIME_CACHE_TTL_MS = 34 * 24 * 60 * 60 * 1000; // 1 month + 4 days
 const GEOCODE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 interface TravelTimeRequest {
