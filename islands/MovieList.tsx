@@ -334,6 +334,9 @@ export default function MovieList({ listPath }: MovieListProps) {
 
   // Auto-cleanup: Remove selected cities not available in date range
   useEffect(() => {
+    // Don't run cleanup until we have data loaded
+    if (showtimes.length === 0) return;
+
     if (selectedCities.length > 0) {
       const availableCitySet = new Set(filteredCities);
       const validCities = selectedCities.filter((city) => availableCitySet.has(city));
@@ -341,10 +344,13 @@ export default function MovieList({ listPath }: MovieListProps) {
         setSelectedCities(validCities);
       }
     }
-  }, [startDate, endDate, selectedCities, filteredCities]);
+  }, [startDate, endDate, selectedCities, filteredCities, showtimes]);
 
   // Auto-cleanup: Remove selected theaters not available in current selection
   useEffect(() => {
+    // Don't run cleanup until we have data loaded
+    if (showtimes.length === 0) return;
+
     if (selectedTheaters.length > 0) {
       const availableTheaterSet = new Set(filteredTheaters.map((t) => t.name));
       const validTheaters = selectedTheaters.filter((name) => availableTheaterSet.has(name));
@@ -352,10 +358,13 @@ export default function MovieList({ listPath }: MovieListProps) {
         setSelectedTheaters(validTheaters);
       }
     }
-  }, [startDate, endDate, selectedCities, selectedTheaters, filteredTheaters]);
+  }, [startDate, endDate, selectedCities, selectedTheaters, filteredTheaters, showtimes]);
 
   // Auto-cleanup: Remove selected films not available in current selection
   useEffect(() => {
+    // Don't run cleanup until we have data loaded
+    if (showtimes.length === 0) return;
+
     if (selectedFilms.length > 0) {
       const availableSlugs = new Set(filteredFilms.map((f) => f.slug));
       const validFilms = selectedFilms.filter((slug) => availableSlugs.has(slug));
@@ -363,7 +372,7 @@ export default function MovieList({ listPath }: MovieListProps) {
         setSelectedFilms(validFilms);
       }
     }
-  }, [startDate, endDate, selectedCities, selectedTheaters, selectedFilms, filteredFilms]);
+  }, [startDate, endDate, selectedCities, selectedTheaters, selectedFilms, filteredFilms, showtimes]);
 
   // Filter showtimes based on selected filters
   const filteredShowtimes = useMemo(() => {
