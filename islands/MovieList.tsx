@@ -233,28 +233,67 @@ export default function MovieList({ listPath }: MovieListProps) {
     }
   }, [startDate, endDate, selectedCities, selectedTheaters, selectedFilms]);
 
-  // Fetch travel times when active location is set (manual trigger only)
-  const fetchTravelTimes = async () => {
+  // Get cached travel times from localStorage
+  const getCachedTravelTimes = (
+    location: string,
+  ): Map<string, number> | null => {
+    try {
+      const cached = localStorage.getItem(`travel_times_${location}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return new Map(Object.entries(parsed));
+      }
+    } catch (e) {
+      console.error("Failed to load cached travel times:", e);
+    }
+    return null;
+  };
+
+  // Save travel times to localStorage
+  const saveTravelTimesToCache = (location: string, times: Map<string, number>) => {
+    try {
+      const obj = Object.fromEntries(times);
+      localStorage.setItem(`travel_times_${location}`, JSON.stringify(obj));
+    } catch (e) {
+      console.error("Failed to save travel times to cache:", e);
+    }
+  };
+
+  // Fetch travel times lazily (one by one) when location and showtimes exist
+  useEffect(() => {
     if (!activeLocation.trim() || showtimes.length === 0) {
       setTravelTimes(new Map());
+      setIsFetchingTravelTimes(false);
       return;
     }
 
-    setIsFetchingTravelTimes(true);
+    const fetchTravelTimesLazy = async () => {
+      setIsFetchingTravelTimes(true);
 
-    // Extract unique theater names from showtimes
-    const theaters = new Set<string>();
-    showtimes.forEach((show) => {
-      if (show.theater?.name) {
-        theaters.add(show.theater.name);
+      // Extract unique theater names from showtimes
+      const theaters = new Set<string>();
+      showtimes.forEach((show) => {
+        if (show.theater?.name) {
+          theaters.add(show.theater.name);
+        }
+      });
+
+      // Check if we have cached times for this location
+      const cachedTimes = getCachedTravelTimes(activeLocation);
+      const times = cachedTimes || new Map<string, number>();
+
+      // Set cached times immediately if available
+      if (cachedTimes) {
+        setTravelTimes(new Map(cachedTimes));
       }
-    });
 
-    // Fetch travel times for each theater in parallel
-    const times = new Map<string, number>();
+      // Fetch missing theater times lazily (one at a time)
+      for (const theaterName of Array.from(theaters)) {
+        // Skip if already cached
+        if (times.has(theaterName)) {
+          continue;
+        }
 
-    await Promise.all(
-      Array.from(theaters).map(async (theaterName) => {
         try {
           const response = await fetch("/api/travel-time", {
             method: "POST",
@@ -268,6 +307,12 @@ export default function MovieList({ listPath }: MovieListProps) {
           if (response.ok) {
             const data = await response.json();
             times.set(theaterName, data.duration);
+
+            // Update state incrementally as each theater loads
+            setTravelTimes(new Map(times));
+
+            // Save to cache after each successful fetch
+            saveTravelTimesToCache(activeLocation, times);
           }
         } catch (e) {
           console.error(
@@ -275,21 +320,13 @@ export default function MovieList({ listPath }: MovieListProps) {
             e,
           );
         }
-      }),
-    );
+      }
 
-    setTravelTimes(times);
-    setIsFetchingTravelTimes(false);
-  };
+      setIsFetchingTravelTimes(false);
+    };
 
-  // Fetch travel times when active location changes
-  useEffect(() => {
-    if (activeLocation) {
-      fetchTravelTimes();
-    } else {
-      setTravelTimes(new Map());
-    }
-  }, [activeLocation]);
+    fetchTravelTimesLazy();
+  }, [activeLocation, showtimes]);
 
   const fetchShowtimes = async () => {
     if (!listPath.trim()) return;
