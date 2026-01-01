@@ -351,17 +351,15 @@ export default function MovieList({ listPath }: MovieListProps) {
           `[Travel Times] Fetching travel time for: ${theaterAddress}`,
         );
         try {
-          const response = await fetch("/api/travel-time", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fromLocation: activeLocation,
-              fromLat: activeLocationCoords.lat,
-              fromLng: activeLocationCoords.lon,
-              toLocation: theaterAddress,
-              // Let API geocode theater address
-            }),
+          // Build query params
+          const params = new URLSearchParams({
+            fromLocation: activeLocation,
+            fromLat: activeLocationCoords.lat,
+            fromLng: activeLocationCoords.lon,
+            toLocation: theaterAddress,
           });
+
+          const response = await fetch(`/api/travel-time?${params.toString()}`);
 
           if (response.ok) {
             const data = await response.json();

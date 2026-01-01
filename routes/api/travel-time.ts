@@ -211,85 +211,93 @@ async function setCachedTravelTime(
 }
 
 export const handler: Handlers = {
-  async POST(req) {
+  async GET(req) {
     try {
-      const body: TravelTimeRequest = await req.json();
+      const url = new URL(req.url);
+      const fromLocation = url.searchParams.get("fromLocation");
+      const toLocation = url.searchParams.get("toLocation");
+      const fromLat = url.searchParams.get("fromLat") || undefined;
+      const fromLng = url.searchParams.get("fromLng") || undefined;
+      const toLat = url.searchParams.get("toLat") || undefined;
+      const toLng = url.searchParams.get("toLng") || undefined;
 
-      if (!body.fromLocation || !body.toLocation) {
+      if (!fromLocation || !toLocation) {
         return new Response(
           JSON.stringify({
-            error: "fromLocation and toLocation are required",
+            error: "fromLocation and toLocation query parameters are required",
           }),
           { status: 400, headers: { "Content-Type": "application/json" } },
         );
       }
 
       // Check cache first
-      let duration = await getCachedTravelTime(
-        body.fromLocation,
-        body.toLocation,
-      );
+      let duration = await getCachedTravelTime(fromLocation, toLocation);
       let cached = true;
 
       if (duration === null) {
         // Get origin coordinates
-        let fromLat = body.fromLat;
-        let fromLng = body.fromLng;
+        let originLat = fromLat;
+        let originLng = fromLng;
 
-        if (!fromLat || !fromLng) {
+        if (!originLat || !originLng) {
           // Try cache first
-          const cachedFrom = await getCachedGeocode(body.fromLocation);
+          const cachedFrom = await getCachedGeocode(fromLocation);
           if (cachedFrom) {
-            fromLat = cachedFrom.lat;
-            fromLng = cachedFrom.lon;
+            originLat = cachedFrom.lat;
+            originLng = cachedFrom.lon;
           } else {
             // Geocode the origin
-            const fromResult = await geocodeLocation(body.fromLocation);
+            const fromResult = await geocodeLocation(fromLocation);
             if (!fromResult) {
               return new Response(
                 JSON.stringify({
                   error: "Could not geocode origin location",
-                  location: body.fromLocation,
+                  location: fromLocation,
                 }),
                 { status: 400, headers: { "Content-Type": "application/json" } },
               );
             }
-            fromLat = fromResult.lat;
-            fromLng = fromResult.lon;
-            await setCachedGeocode(body.fromLocation, fromLat, fromLng);
+            originLat = fromResult.lat;
+            originLng = fromResult.lon;
+            await setCachedGeocode(fromLocation, originLat, originLng);
           }
         }
 
         // Get destination coordinates
-        let toLat = body.toLat;
-        let toLng = body.toLng;
+        let destLat = toLat;
+        let destLng = toLng;
 
-        if (!toLat || !toLng) {
+        if (!destLat || !destLng) {
           // Try cache first
-          const cachedTo = await getCachedGeocode(body.toLocation);
+          const cachedTo = await getCachedGeocode(toLocation);
           if (cachedTo) {
-            toLat = cachedTo.lat;
-            toLng = cachedTo.lon;
+            destLat = cachedTo.lat;
+            destLng = cachedTo.lon;
           } else {
             // Geocode the destination
-            const toResult = await geocodeLocation(body.toLocation);
+            const toResult = await geocodeLocation(toLocation);
             if (!toResult) {
               return new Response(
                 JSON.stringify({
                   error: "Could not geocode destination location",
-                  location: body.toLocation,
+                  location: toLocation,
                 }),
                 { status: 400, headers: { "Content-Type": "application/json" } },
               );
             }
-            toLat = toResult.lat;
-            toLng = toResult.lon;
-            await setCachedGeocode(body.toLocation, toLat, toLng);
+            destLat = toResult.lat;
+            destLng = toResult.lon;
+            await setCachedGeocode(toLocation, destLat, destLng);
           }
         }
 
         // Fetch travel time from Google Maps API with coordinates
-        duration = await fetchGoogleMapsTravelTime(fromLat, fromLng, toLat, toLng);
+        duration = await fetchGoogleMapsTravelTime(
+          originLat,
+          originLng,
+          destLat,
+          destLng,
+        );
         cached = false;
 
         if (duration === null) {
@@ -302,19 +310,23 @@ export const handler: Handlers = {
         }
 
         // Cache the result
-        await setCachedTravelTime(body.fromLocation, body.toLocation, duration);
+        await setCachedTravelTime(fromLocation, toLocation, duration);
       }
 
       const response: TravelTimeResponse = {
         duration,
-        fromLocation: body.fromLocation,
-        toLocation: body.toLocation,
+        fromLocation,
+        toLocation,
         cached,
       };
 
+      // Add aggressive cache headers (34 days to match server cache)
       return new Response(JSON.stringify(response), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=2937600", // 34 days in seconds
+        },
       });
     } catch (error) {
       console.error("Travel time API error:", error);
