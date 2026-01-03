@@ -1,4 +1,4 @@
-import { useMemo, useState } from "preact/hooks";
+import { useMemo, useState, useRef, useEffect } from "preact/hooks";
 
 // Generate optimized poster URLs for srcset
 function getPosterSrcSet(url: string): { src: string; srcSet: string } {
@@ -133,6 +133,61 @@ export default function MovieCard(
     dateKeys.length > 0 ? dateKeys[0] : "",
   );
 
+  // Drag-to-scroll state for date selector
+  const dateListRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [hasDragged, setHasDragged] = useState(false);
+
+  const handleMouseDown = (e: any) => {
+    if (!dateListRef.current) return;
+    setIsDragging(true);
+    setHasDragged(false);
+    setStartX(e.pageX - dateListRef.current.offsetLeft);
+    setScrollLeft(dateListRef.current.scrollLeft);
+  };
+
+  const handleDateClick = (date: string) => {
+    // Prevent selection if user was dragging
+    if (hasDragged) {
+      setHasDragged(false);
+      return;
+    }
+    setSelectedDate(date);
+  };
+
+  // Attach global event listeners for dragging
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: any) => {
+      if (!dateListRef.current) return;
+      e.preventDefault();
+      const x = e.pageX - dateListRef.current.offsetLeft;
+      const walk = (x - startX) * 2; // Multiply by 2 for faster scrolling
+
+      // Mark as dragged if moved more than 5 pixels
+      if (Math.abs(walk) > 5) {
+        setHasDragged(true);
+      }
+
+      dateListRef.current.scrollLeft = scrollLeft - walk;
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, startX, scrollLeft]);
+
   // Memoize poster URLs
   const posterUrls = useMemo(
     () => (film.poster?.url ? getPosterSrcSet(film.poster.url) : null),
@@ -249,7 +304,9 @@ export default function MovieCard(
 
             {/* Horizontal Date List */}
             <div
+              ref={dateListRef}
               class="date-list"
+              onMouseDown={handleMouseDown}
               style={{
                 display: "flex",
                 gap: "8px",
@@ -257,6 +314,8 @@ export default function MovieCard(
                 paddingBottom: "12px",
                 marginBottom: "12px",
                 borderBottom: "1px solid #2f3336",
+                cursor: isDragging ? "grabbing" : "grab",
+                userSelect: "none",
               }}
             >
               {dateKeys.map((date) => {
@@ -283,7 +342,7 @@ export default function MovieCard(
                   <button
                     type="button"
                     key={date}
-                    onClick={() => setSelectedDate(date)}
+                    onClick={() => handleDateClick(date)}
                     aria-label={`${isSelected ? "Selected: " : "Select "}showtimes for ${fullDateStr}`}
                     style={{
                       padding: "6px 12px",
