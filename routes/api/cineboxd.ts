@@ -726,8 +726,8 @@ const fetchCinevilleShowtimes = async (
     console.log(`Cineville: found ${productionIds.data.films.data.length} matching production IDs`);
 
     // Batch production IDs to get better coverage per film
-    // With 999 limit per query, batching ensures each film gets more showtimes
-    const BATCH_SIZE = 20; // 20 films per query = ~50 showtimes per film
+    // With 1000 limit per query, smaller batches ensure each film gets more showtimes
+    const BATCH_SIZE = 4; // 4 films per query = ~250 showtimes per film (5x increase from 20 films/~50 showtimes)
     const allShows: any[] = [];
     const productionIdBatches: string[][] = [];
 
@@ -744,7 +744,7 @@ const fetchCinevilleShowtimes = async (
     const batchPromises = productionIdBatches.map(async (productionIdList) => {
       const showtimesQuery = JSON.stringify({
         query: `{
-  showtimes(page: {limit: 999}, filters:  {
+  showtimes(page: {limit: 1000}, filters:  {
      productionId:  {
         in: [${productionIdList.join(",")}]
      }
@@ -876,7 +876,7 @@ const fetchCinevilleShowtimes = async (
 export async function fetchAndCacheShowtimes(listPath: string) {
   try {
     // Check cache first
-    const cacheKey = `showtimes:v19:${listPath}`;
+    const cacheKey = `showtimes:v21:${listPath}`;
     const cached = await getCached<Record<string, unknown>>(cacheKey);
     if (cached) {
       console.log(`Cache HIT for ${listPath}`);
@@ -960,7 +960,7 @@ export const handler: Handlers = {
       const resp = await fetchAndCacheShowtimes(listPath);
 
       const CACHE_SECONDS = 36 * 60 * 60; // 36 hours
-      const cacheKey = `showtimes:v19:${listPath}`;
+      const cacheKey = `showtimes:v21:${listPath}`;
       const wasCached = (await getCached<Record<string, unknown>>(cacheKey)) === resp;
 
       return new Response(JSON.stringify(resp), {
