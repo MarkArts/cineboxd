@@ -316,7 +316,14 @@ export default function MovieCard(
             >
               {Array.from(showsByDate.get(selectedDate)!.values())
                 .sort((a, b) => a.theater.name.localeCompare(b.theater.name))
-                .map((data) => (
+                .map((data) => {
+                  // Check if this theater has ANY showtime with subtitle data for this film
+                  const hasAnySubtitleData = data.shows.some(show =>
+                    (show.subtitlesList && show.subtitlesList.length > 0) ||
+                    show.languageVersionAbbreviation
+                  );
+
+                  return (
                   <div
                     key={data.theater.name}
                     style={{
@@ -413,6 +420,10 @@ export default function MovieCard(
 
                             // Format subtitle information
                             const subtitleInfo = [];
+                            const hasExplicitSubtitleData =
+                              (show.subtitlesList && show.subtitlesList.length > 0) ||
+                              show.languageVersionAbbreviation;
+
                             if (show.languageVersionAbbreviation) {
                               subtitleInfo.push(show.languageVersionAbbreviation.toUpperCase());
                             }
@@ -420,6 +431,12 @@ export default function MovieCard(
                               const subtitles = show.subtitlesList.map(s => s.toUpperCase()).join("/");
                               subtitleInfo.push(subtitles);
                             }
+
+                            // If this theater has mixed subtitle data and this showtime has none, default to NL
+                            if (hasAnySubtitleData && !hasExplicitSubtitleData) {
+                              subtitleInfo.push("NL");
+                            }
+
                             const subtitleStr = subtitleInfo.length > 0
                               ? ` (${subtitleInfo.join(", ")})`
                               : "";
@@ -468,7 +485,8 @@ export default function MovieCard(
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
             </div>
           )}
         </div>
