@@ -144,8 +144,9 @@ export default function MovieCard(
     if (!dateListRef.current) return;
     setIsDragging(true);
     setHasDragged(false);
-    setStartX(e.pageX - dateListRef.current.offsetLeft);
+    setStartX(e.clientX);
     setScrollLeft(dateListRef.current.scrollLeft);
+    e.preventDefault();
   };
 
   const handleDateClick = (date: string) => {
@@ -161,18 +162,19 @@ export default function MovieCard(
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: any) => {
+    const handleMouseMove = (e: MouseEvent) => {
       if (!dateListRef.current) return;
       e.preventDefault();
-      const x = e.pageX - dateListRef.current.offsetLeft;
-      const walk = (x - startX) * 2; // Multiply by 2 for faster scrolling
+
+      const x = e.clientX;
+      const walk = (startX - x) * 2; // Multiply by 2 for faster scrolling
 
       // Mark as dragged if moved more than 5 pixels
       if (Math.abs(walk) > 5) {
         setHasDragged(true);
       }
 
-      dateListRef.current.scrollLeft = scrollLeft - walk;
+      dateListRef.current.scrollLeft = scrollLeft + walk;
     };
 
     const handleMouseUp = () => {
