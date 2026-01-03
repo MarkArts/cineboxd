@@ -136,23 +136,25 @@ export default function MovieCard(
   // Drag-to-scroll state for date selector
   const dateListRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [hasDragged, setHasDragged] = useState(false);
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+  const hasMovedRef = useRef(false);
 
   const handleMouseDown = (e: any) => {
     if (!dateListRef.current) return;
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    startXRef.current = e.clientX;
+    scrollLeftRef.current = dateListRef.current.scrollLeft;
     setIsDragging(true);
-    setHasDragged(false);
-    setStartX(e.clientX);
-    setScrollLeft(dateListRef.current.scrollLeft);
     e.preventDefault();
   };
 
   const handleDateClick = (date: string) => {
     // Prevent selection if user was dragging
-    if (hasDragged) {
-      setHasDragged(false);
+    if (hasMovedRef.current) {
+      hasMovedRef.current = false;
       return;
     }
     setSelectedDate(date);
@@ -160,24 +162,23 @@ export default function MovieCard(
 
   // Attach global event listeners for dragging
   useEffect(() => {
-    if (!isDragging) return;
-
     const handleMouseMove = (e: MouseEvent) => {
-      if (!dateListRef.current) return;
+      if (!isDraggingRef.current || !dateListRef.current) return;
       e.preventDefault();
 
       const x = e.clientX;
-      const walk = (startX - x) * 2; // Multiply by 2 for faster scrolling
+      const walk = (x - startXRef.current) * 1.5;
 
       // Mark as dragged if moved more than 5 pixels
       if (Math.abs(walk) > 5) {
-        setHasDragged(true);
+        hasMovedRef.current = true;
       }
 
-      dateListRef.current.scrollLeft = scrollLeft + walk;
+      dateListRef.current.scrollLeft = scrollLeftRef.current - walk;
     };
 
     const handleMouseUp = () => {
+      isDraggingRef.current = false;
       setIsDragging(false);
     };
 
@@ -188,7 +189,7 @@ export default function MovieCard(
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, startX, scrollLeft]);
+  }, []);
 
   // Memoize poster URLs
   const posterUrls = useMemo(
