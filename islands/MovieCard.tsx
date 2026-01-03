@@ -43,6 +43,9 @@ interface Show {
   startDate: string;
   ticketingUrl: string;
   chain?: "cineville" | "pathe";
+  subtitlesList?: string[];
+  languageVersion?: string;
+  languageVersionAbbreviation?: string;
 }
 
 interface TheaterData {
@@ -407,9 +410,24 @@ export default function MovieCard(
                             const isPathe = show.chain === "pathe";
                             const bgColor = isPathe ? "#c2410c" : "#1d4ed8";
                             const timeStr = formatTime(show.startDate);
+
+                            // Format subtitle information
+                            const subtitleInfo = [];
+                            if (show.languageVersionAbbreviation) {
+                              subtitleInfo.push(show.languageVersionAbbreviation.toUpperCase());
+                            }
+                            if (show.subtitlesList && show.subtitlesList.length > 0) {
+                              const subtitles = show.subtitlesList.map(s => s.toUpperCase()).join("/");
+                              subtitleInfo.push(subtitles);
+                            }
+                            const subtitleStr = subtitleInfo.length > 0
+                              ? ` (${subtitleInfo.join(", ")})`
+                              : "";
+
                             const ariaLabel = show.ticketingUrl
-                              ? `Book tickets for ${timeStr} showing of ${film.title} at ${data.theater.name}`
-                              : `${timeStr} showing at ${data.theater.name} - tickets unavailable`;
+                              ? `Book tickets for ${timeStr} showing of ${film.title} at ${data.theater.name}${subtitleStr}`
+                              : `${timeStr} showing at ${data.theater.name}${subtitleStr} - tickets unavailable`;
+
                             return (
                               <a
                                 key={show.id}
@@ -430,8 +448,20 @@ export default function MovieCard(
                                     : "default",
                                   display: "inline-block",
                                 }}
+                                title={subtitleInfo.length > 0 ? subtitleInfo.join(", ") : undefined}
                               >
                                 {timeStr}
+                                {subtitleStr && (
+                                  <span
+                                    style={{
+                                      fontSize: "11px",
+                                      opacity: "0.85",
+                                      marginLeft: "4px",
+                                    }}
+                                  >
+                                    {subtitleStr}
+                                  </span>
+                                )}
                               </a>
                             );
                           })}

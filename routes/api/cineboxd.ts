@@ -91,6 +91,9 @@ interface Show {
     address?: { city: string };
   };
   chain?: "cineville" | "pathe";
+  subtitlesList?: string[];
+  languageVersion?: string;
+  languageVersionAbbreviation?: string;
 }
 
 // Deno KV singleton
@@ -753,6 +756,9 @@ const fetchCinevilleShowtimes = async (
       id,
       startDate
       endDate
+      subtitlesList
+      languageVersion
+      languageVersionAbbreviation
       film {
         title
         slug
@@ -870,7 +876,7 @@ const fetchCinevilleShowtimes = async (
 export async function fetchAndCacheShowtimes(listPath: string) {
   try {
     // Check cache first
-    const cacheKey = `showtimes:v18:${listPath}`;
+    const cacheKey = `showtimes:v19:${listPath}`;
     const cached = await getCached<Record<string, unknown>>(cacheKey);
     if (cached) {
       console.log(`Cache HIT for ${listPath}`);
@@ -954,7 +960,7 @@ export const handler: Handlers = {
       const resp = await fetchAndCacheShowtimes(listPath);
 
       const CACHE_SECONDS = 36 * 60 * 60; // 36 hours
-      const cacheKey = `showtimes:v18:${listPath}`;
+      const cacheKey = `showtimes:v19:${listPath}`;
       const wasCached = (await getCached<Record<string, unknown>>(cacheKey)) === resp;
 
       return new Response(JSON.stringify(resp), {
