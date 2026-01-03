@@ -149,6 +149,8 @@ export default function MovieList({ listPath }: MovieListProps) {
   );
   const [isFetchingTravelTimes, setIsFetchingTravelTimes] = useState(false);
   const [travelTimeError, setTravelTimeError] = useState<string | null>(null);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   // Cycle through loading messages
   useEffect(() => {
@@ -160,6 +162,36 @@ export default function MovieList({ listPath }: MovieListProps) {
 
     return () => clearInterval(interval);
   }, [isLoading]);
+
+  // Handle header visibility on scroll (mobile only)
+  useEffect(() => {
+    if (!IS_BROWSER) return;
+
+    const handleScroll = () => {
+      const currentScrollY = globalThis.scrollY;
+
+      // Show header when at top of page
+      if (currentScrollY < 10) {
+        setHeaderVisible(true);
+        setLastScrollY(currentScrollY);
+        return;
+      }
+
+      // Show/hide based on scroll direction
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        // Scrolling down & past threshold - hide header
+        setHeaderVisible(false);
+      } else if (currentScrollY < lastScrollY) {
+        // Scrolling up - show header
+        setHeaderVisible(true);
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    globalThis.addEventListener("scroll", handleScroll, { passive: true });
+    return () => globalThis.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
 
   // Initialize from URL params on mount
   useEffect(() => {
@@ -1073,6 +1105,8 @@ export default function MovieList({ listPath }: MovieListProps) {
           position: "sticky",
           top: 0,
           zIndex: 100,
+          transform: headerVisible ? "translateY(0)" : "translateY(-100%)",
+          transition: "transform 0.3s ease-in-out",
         }}
       >
         <div
