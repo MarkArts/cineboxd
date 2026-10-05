@@ -90,7 +90,7 @@ interface Show {
     name: string;
     address?: { city: string };
   };
-  chain?: "cineville" | "pathe";
+  chain?: "cineville" | "pathe" | "gouda";
   subtitlesList?: string[];
   languageVersion?: string;
   languageVersionAbbreviation?: string;
@@ -928,6 +928,254 @@ const fetchCinevilleShowtimes = async (
   }
 };
 
+// ============ Cinema Gouda (independent cinema, scraped) ============
+
+const GOUDA_BASE_URL = "https://www.cinemagouda.nl";
+
+// Convert an Europe/Amsterdam wall clock time to a UTC ISO string
+// (handles DST: CET in winter, CEST in summer)
+const amsterdamWallClockToUtcISO = (
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+): string => {
+  const wallMs = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Amsterdam",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  // Iteratively find the UTC instant whose Amsterdam wall clock matches
+  let utcMs = wallMs;
+  for (let i = 0; i < 3; i++) {
+    const parts = Object.fromEntries(
+      fmt.formatToParts(new Date(utcMs)).map((p) => [p.type, p.value]),
+    );
+    const shownMs = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour) % 24,
+      Number(parts.minute),
+      Number(parts.second),
+    );
+    utcMs += wallMs - shownMs;
+  }
+
+  return new Date(utcMs).toISOString();
+};
+
+const GOUDA_MONTHS = [
+  "januari",
+  "februari",
+  "maart",
+  "april",
+  "mei",
+  "juni",
+  "juli",
+  "augustus",
+  "september",
+  "oktober",
+  "november",
+  "december",
+];
+
+// Resolve day + Dutch month to a full date (year is not shown on the
+// site, so infer it: a date more than a week in the past must be next year)
+const resolveGoudaDate = (
+  day: number,
+  month: number,
+): { year: number; month: number; day: number } => {
+  const now = Date.now();
+  let year = new Date().getUTCFullYear();
+  if (Date.UTC(year, month - 1, day) < now - 7 * 24 * 3600 * 1000) {
+    year += 1;
+  }
+  return { year, month, day };
+};
+
+// Parse a single Cinema Gouda film page into Show objects
+const parseGoudaFilmPage = async (slug: string): Promise<Show[] | null> => {
+  const response = await fetch(`${GOUDA_BASE_URL}/film/${slug}`, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
+  });
+  if (!response.ok) {
+    console.warn(`Cinema Gouda: failed to fetch film ${slug}:`, response.status);
+    return null;
+  }
+  const html = await response.text();
+
+  const titleMatch = html.match(/<h1 class="titel">([^<]+)<\/h1>/);
+  const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : "";
+  if (!title) return null;
+
+  const posterMatch = html.match(
+    /<img src="(https:\/\/www\.cinemagouda\.nl\/cache\/[^"']*s800x800\.jpg)"/,
+  );
+  const posterUrl = posterMatch?.[1];
+
+  const directorsMatch = html.match(
+    /<span class="text-label">Regisseur<\/span>\s*<div class="text">\s*<p>([^<]*)<\/p>/,
+  );
+  const directors = directorsMatch
+    ? decodeHtmlEntities(directorsMatch[1])
+      .split(/[,/]| en /)
+      .map((d) => d.trim())
+      .filter(Boolean)
+    : [];
+
+  const durationMatch = html.match(
+    /<span class="text-label">Duur<\/span>\s*<div class="text">\s*<p>(\d+)\s*min<\/p>/,
+  );
+  const duration = durationMatch ? Number(durationMatch[1]) : 0;
+
+  const shows: Show[] = [];
+
+  // Each date group: <li class="film-item ...">
+  //   <h4 class="titel">Zondag 11 oktober ...</h4>
+  //   <a class="time-item" href="...ticketing..."><span class="time">15:35</span>
+  const segments = html.split(/<li class="film-item/).slice(1);
+  for (const segment of segments) {
+    const dateMatch = segment.match(
+      /(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)/i,
+    );
+    if (!dateMatch) continue;
+
+    const monthIndex = GOUDA_MONTHS.findIndex((m) =>
+      m === dateMatch[2].toLowerCase()
+    );
+    if (monthIndex === -1) continue;
+    const { year, month, day } = resolveGoudaDate(
+      Number(dateMatch[1]),
+      monthIndex + 1,
+    );
+
+    const timeRe =
+      /<a class="time-item[^>]*href="([^"]+)"[^>]*>\s*<span class="time">(\d{1,2}):(\d{2})<\/span>/g;
+    for (const timeMatch of segment.matchAll(timeRe)) {
+      const startDate = amsterdamWallClockToUtcISO(
+        year,
+        month,
+        day,
+        Number(timeMatch[2]),
+        Number(timeMatch[3]),
+      );
+      const endDate = duration > 0
+        ? new Date(
+          new Date(startDate).getTime() + duration * 60 * 1000,
+        ).toISOString()
+        : startDate;
+
+      shows.push({
+        id: `gouda-${slug}-${startDate}`,
+        startDate,
+        endDate,
+        ticketingUrl: decodeHtmlEntities(timeMatch[1]),
+        film: {
+          title,
+          slug,
+          poster: posterUrl ? { url: posterUrl } : undefined,
+          duration,
+          directors,
+        },
+        theater: {
+          name: "Cinema Gouda",
+          address: { city: "Gouda" },
+        },
+        chain: "gouda",
+      });
+    }
+  }
+
+  return shows;
+};
+
+// Fetch all current Cinema Gouda showtimes (the whole program is cached in
+// KV so multiple watchlist fetches share one scrape)
+const fetchCinemaGoudaShows = async (): Promise<Show[]> => {
+  const cacheKey = "cinemagouda:shows:v1";
+  const cached = await getCached<Show[]>(cacheKey);
+  if (cached) {
+    console.log(`Cinema Gouda: cache HIT (${cached.length} showtimes)`);
+    return cached;
+  }
+
+  const response = await fetch(`${GOUDA_BASE_URL}/films/nu-te-zien`, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Cinema Gouda film list failed (HTTP ${response.status})`,
+    );
+  }
+  const html = await response.text();
+
+  const slugs = [...new Set(
+    [...html.matchAll(/href="https:\/\/www\.cinemagouda\.nl\/film\/([a-z0-9-]+)"/g)]
+      .map((m) => m[1]),
+  )];
+
+  console.log(`Cinema Gouda: scraping ${slugs.length} film pages`);
+
+  const shows: Show[] = [];
+  const CONCURRENCY = 8;
+  for (let i = 0; i < slugs.length; i += CONCURRENCY) {
+    const batch = slugs.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((slug) => parseGoudaFilmPage(slug)),
+    );
+    for (const result of results) {
+      if (result) shows.push(...result);
+    }
+    // Be polite to cinemagouda.nl
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+
+  console.log(`Cinema Gouda: scraped ${shows.length} showtimes total`);
+  await setCache(cacheKey, shows);
+  return shows;
+};
+
+// Match Cinema Gouda showtimes against watchlist titles
+const fetchCinemaGoudaShowtimes = async (
+  watchlistTitles: string[],
+): Promise<Show[]> => {
+  try {
+    const all = await fetchCinemaGoudaShows();
+    if (!all.length) return [];
+
+    const normalizedWatchlist = watchlistTitles.map(normalizeTitle);
+    const matches = all.filter((show) => {
+      const normalized = normalizeTitle(show.film.title);
+      return normalizedWatchlist.some((w) =>
+        normalized === w || normalized.includes(w) || w.includes(normalized)
+      );
+    });
+
+    console.log(
+      `Cinema Gouda: matched ${matches.length}/${all.length} showtimes from watchlist`,
+    );
+    return matches;
+  } catch (e) {
+    console.error("Cinema Gouda fetch failed:", e);
+    return [];
+  }
+};
+
 /**
  * Fetch and cache showtimes for a given Letterboxd list
  * This is the core logic extracted from the HTTP handler for reuse in cron jobs
@@ -937,7 +1185,7 @@ const fetchCinevilleShowtimes = async (
 export async function fetchAndCacheShowtimes(listPath: string) {
   try {
     // Check cache first
-    const cacheKey = `showtimes:v22:${listPath}`;
+    const cacheKey = `showtimes:v23:${listPath}`;
     const cached = await getCached<Record<string, unknown>>(cacheKey);
     if (cached) {
       console.log(`Cache HIT for ${listPath}`);
@@ -959,10 +1207,11 @@ export async function fetchAndCacheShowtimes(listPath: string) {
       `Fetching showtimes for ${filmTitles.length} films from "${listPath}"`,
     );
 
-    // Fetch from both sources in parallel
-    const [cinevilleResult, patheResult] = await Promise.allSettled([
+    // Fetch from all sources in parallel
+    const [cinevilleResult, patheResult, goudaResult] = await Promise.allSettled([
       fetchCinevilleShowtimes(filmTitles),
       fetchPatheShowtimes(filmTitles),
+      fetchCinemaGoudaShowtimes(filmTitles),
     ]);
 
     // Extract results
@@ -972,6 +1221,9 @@ export async function fetchAndCacheShowtimes(listPath: string) {
     const patheShows = patheResult.status === "fulfilled"
       ? patheResult.value
       : [];
+    const goudaShows = goudaResult.status === "fulfilled"
+      ? goudaResult.value
+      : [];
 
     // Log failures
     if (cinevilleResult.status === "rejected") {
@@ -980,12 +1232,15 @@ export async function fetchAndCacheShowtimes(listPath: string) {
     if (patheResult.status === "rejected") {
       console.error("Pathé fetch rejected:", patheResult.reason);
     }
+    if (goudaResult.status === "rejected") {
+      console.error("Cinema Gouda fetch rejected:", goudaResult.reason);
+    }
 
     // Merge all showtimes
-    const allShows = [...cinevilleShows, ...patheShows];
+    const allShows = [...cinevilleShows, ...patheShows, ...goudaShows];
 
     console.log(
-      `Total: ${allShows.length} showtimes (Cineville: ${cinevilleShows.length}, Pathé: ${patheShows.length})`,
+      `Total: ${allShows.length} showtimes (Cineville: ${cinevilleShows.length}, Pathé: ${patheShows.length}, Gouda: ${goudaShows.length})`,
     );
 
     // Format response
@@ -1024,7 +1279,7 @@ export const handler: Handlers = {
       const resp = await fetchAndCacheShowtimes(listPath);
 
       const CACHE_SECONDS = 36 * 60 * 60; // 36 hours
-      const cacheKey = `showtimes:v22:${listPath}`;
+      const cacheKey = `showtimes:v23:${listPath}`;
       const wasCached = (await getCached<Record<string, unknown>>(cacheKey)) === resp;
 
       return new Response(JSON.stringify(resp), {

@@ -95,7 +95,7 @@ interface Show {
     name: string;
     address?: { city: string };
   };
-  chain?: "cineville" | "pathe";
+  chain?: "cineville" | "pathe" | "gouda";
 }
 
 interface MovieListProps {

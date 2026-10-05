@@ -42,7 +42,7 @@ interface Show {
   id: string;
   startDate: string;
   ticketingUrl: string;
-  chain?: "cineville" | "pathe";
+  chain?: "cineville" | "pathe" | "gouda";
   subtitlesList?: string[];
   languageVersion?: string;
   languageVersionAbbreviation?: string;
@@ -416,8 +416,11 @@ export default function MovieCard(
                             new Date(b.startDate).getTime()
                           )
                           .map((show) => {
-                            const isPathe = show.chain === "pathe";
-                            const bgColor = isPathe ? "#c2410c" : "#1d4ed8";
+                            const bgColor = show.chain === "pathe"
+                              ? "#c2410c"
+                              : show.chain === "gouda"
+                              ? "#0d9488"
+                              : "#1d4ed8";
                             const timeStr = formatTime(show.startDate);
 
                             // Format subtitle information

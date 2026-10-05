@@ -4,7 +4,7 @@
 
 Cineboxd is a movie showtime finder that connects to Letterboxd watchlists.
 Users enter their Letterboxd username to see cinema showtimes for movies on
-their watchlist in Dutch theaters (Cineville + Pathé).
+their watchlist in Dutch theaters (Cineville + Pathé + Cinema Gouda).
 
 ## Tech Stack
 
@@ -53,7 +53,8 @@ selected date state.
 ## Features
 
 - Fetches user's Letterboxd watchlist via API (`/api/cineboxd?username=X`)
-- Combines showtimes from Cineville and Pathé cinemas
+- Combines showtimes from Cineville (CultureKit REST API), Pathé and Cinema
+  Gouda (both scraped) cinemas
 - Movie cards with large posters, film info, and showtimes
 - Horizontal date selector per movie card
 - Theater locations with time slots for selected date
