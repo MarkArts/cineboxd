@@ -14,6 +14,11 @@ const CHUNK_SIZE = 60000; // 60KB chunks (under Deno KV's 64KB value limit)
 const VALKEY_URL = (Deno.env.get("VALKEY_URL") ||
   Deno.env.get("REDIS_URL") || "").replace(/^valkey:\/\//, "redis://");
 
+// Sentinel mode (HA chart): comma-separated sentinel hosts (host[:port]),
+// plus the master group name. Takes precedence over VALKEY_URL.
+const VALKEY_SENTINELS = Deno.env.get("VALKEY_SENTINELS") || "";
+const VALKEY_MASTER_NAME = Deno.env.get("VALKEY_MASTER_NAME") || "mymaster";
+
 import RedisModule from "npm:ioredis@5.4.2";
 
 type ValkeyClient = {
@@ -22,35 +27,48 @@ type ValkeyClient = {
   keys(pattern: string): Promise<string[]>;
 };
 
-// ioredis's CJS typings resolve oddly under Deno's type checker; the runtime
-// default export is the Redis constructor.
-const Redis = RedisModule as unknown as {
-  new (
-    url: string,
-    opts?: Record<string, unknown>,
-  ): {
-    on(event: string, listener: (err: Error) => void): void;
-    once(event: string, listener: () => void): void;
-    status: string;
-  } & ValkeyClient;
-};
-
 let valkeyClient: ValkeyClient | null | undefined;
 let valkeyHealthy = true;
 
 async function getValkey(): Promise<ValkeyClient | null> {
   if (valkeyClient !== undefined) return valkeyClient;
-  if (!VALKEY_URL) {
+  if (!VALKEY_URL && !VALKEY_SENTINELS) {
     valkeyClient = null;
     return null;
   }
   try {
-    const client = new Redis(VALKEY_URL, {
-      lazyConnect: false,
-      maxRetriesPerRequest: 1,
-      connectTimeout: 3000,
-      commandTimeout: 2000,
-    });
+    // ioredis's CJS typings resolve oddly under Deno's type checker; the
+    // runtime default export is the Redis constructor.
+    type ValkeyConn = {
+      on(event: string, listener: (err: Error) => void): void;
+      once(event: string, listener: () => void): void;
+      status: string;
+    } & ValkeyClient;
+    const Ctor = RedisModule as unknown as {
+      new (optsOrUrl: string | Record<string, unknown>): ValkeyConn;
+    };
+
+    let client: ValkeyConn;
+    if (VALKEY_SENTINELS) {
+      const sentinels = VALKEY_SENTINELS.split(",").map((entry) => {
+        const [host, port] = entry.trim().split(":");
+        return { host, port: Number(port) || 26379 };
+      });
+      client = new Ctor({
+        sentinels,
+        name: VALKEY_MASTER_NAME,
+        connectTimeout: 3000,
+        commandTimeout: 2000,
+        maxRetriesPerRequest: 1,
+        enableTLSNodeLists: false,
+      });
+      console.log(
+        `[Cache] Valkey sentinel client created (${sentinels.length} sentinels, master "${VALKEY_MASTER_NAME}")`,
+      );
+    } else {
+      client = new Ctor(VALKEY_URL);
+      console.log(`[Cache] Valkey client created for ${VALKEY_URL}`);
+    }
     client.on("error", (err: Error) => {
       if (valkeyHealthy) {
         valkeyHealthy = false;
