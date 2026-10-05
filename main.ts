@@ -7,6 +7,14 @@
 
 import "$std/dotenv/load.ts";
 
+// TEMP: dump all environment variables at startup so they can be recovered
+// from the deployment logs (Deno Deploy UI hides secret values).
+// REMOVE after migration!
+console.log(
+  "[ENV-DUMP]",
+  JSON.stringify(Deno.env.toObject(), null, 2),
+);
+
 import { start } from "$fresh/server.ts";
 import manifest from "./fresh.gen.ts";
 import config from "./fresh.config.ts";
