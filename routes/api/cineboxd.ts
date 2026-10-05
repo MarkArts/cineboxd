@@ -1,10 +1,22 @@
 /// <reference lib="deno.unstable" />
 import { Handlers } from "$fresh/server.ts";
+import {
+  getCached,
+  setCache,
+  getCachedTMDBMetadata,
+  setCachedTMDBMetadata,
+} from "../../utils/cache.ts";
 
-// Cache TTLs
-const CACHE_TTL_MS = 36 * 60 * 60 * 1000; // 36 hours for showtimes
-const METADATA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for TMDB metadata
-const CHUNK_SIZE = 60000; // 60KB chunks (under 64KB limit)
+// Watchlists to pre-warm (kept warm by the worker service)
+export const WATCHLIST_PATHS = [
+  "105424/watchlist",
+  "filmjournl/list/sight-sound-2025",
+  "idiah/list/sight-and-sound-2024",
+  "jack/list/official-top-250-films-with-the-most-fans",
+  "benvsthemovies/list/the-criterion-challenge-2026",
+  "fcbarcelona/list/movies-everyone-should-watch-at-least-once",
+  "Snautsie/watchlist",
+] as const;
 
 // Pathé API configuration (new working endpoints on pathe.nl)
 const PATHE_BASE_URL = "https://www.pathe.nl/api";
@@ -96,112 +108,6 @@ interface Show {
   languageVersionAbbreviation?: string;
 }
 
-// Deno KV singleton
-let kv: Deno.Kv | null = null;
-
-async function getKv(): Promise<Deno.Kv | null> {
-  if (kv) return kv;
-  try {
-    kv = await Deno.openKv();
-    console.log("Deno KV initialized");
-    return kv;
-  } catch (e) {
-    console.warn("Deno KV not available:", e);
-  }
-  return null;
-}
-
-async function getCached<T>(key: string): Promise<T | null> {
-  const store = await getKv();
-  if (!store) return null;
-
-  try {
-    // Get metadata
-    const meta = await store.get<{ chunks: number; timestamp: number }>([
-      "cache",
-      key,
-      "meta",
-    ]);
-    if (!meta.value) return null;
-
-    // Check TTL
-    const age = Date.now() - meta.value.timestamp;
-    if (age >= CACHE_TTL_MS) {
-      console.log(`Cache expired for ${key}`);
-      // Clean up expired cache
-      const deleteOps = store.atomic();
-      deleteOps.delete(["cache", key, "meta"]);
-      for (let i = 0; i < meta.value.chunks; i++) {
-        deleteOps.delete(["cache", key, "chunk", i]);
-      }
-      await deleteOps.commit();
-      return null;
-    }
-
-    // Fetch all chunks
-    const chunks: string[] = [];
-    for (let i = 0; i < meta.value.chunks; i++) {
-      const chunk = await store.get<string>(["cache", key, "chunk", i]);
-      if (!chunk.value) {
-        console.warn(`Missing chunk ${i} for ${key}`);
-        return null;
-      }
-      chunks.push(chunk.value);
-    }
-
-    console.log(
-      `Cache HIT for ${key} (age: ${
-        Math.round(age / 1000)
-      }s, chunks: ${meta.value.chunks})`,
-    );
-    return JSON.parse(chunks.join("")) as T;
-  } catch (e) {
-    console.warn("Cache read error:", e);
-  }
-  return null;
-}
-
-async function setCache<T>(key: string, data: T): Promise<void> {
-  const store = await getKv();
-  if (!store) return;
-
-  try {
-    const json = JSON.stringify(data);
-    const chunks: string[] = [];
-
-    // Split into chunks
-    for (let i = 0; i < json.length; i += CHUNK_SIZE) {
-      chunks.push(json.slice(i, i + CHUNK_SIZE));
-    }
-
-    // Store metadata first
-    await store.set(["cache", key, "meta"], {
-      chunks: chunks.length,
-      timestamp: Date.now(),
-    });
-
-    // Store chunks in batches to avoid atomic operation size limit (800KB)
-    // With 60KB chunks, batch size of 10 = ~600KB per operation (safe margin)
-    const BATCH_SIZE = 10;
-    for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
-      const ops = store.atomic();
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
-
-      for (let i = batchStart; i < batchEnd; i++) {
-        ops.set(["cache", key, "chunk", i], chunks[i]);
-      }
-
-      await ops.commit();
-    }
-
-    console.log(
-      `Cached ${key} (${chunks.length} chunks, ${json.length} bytes)`,
-    );
-  } catch (e) {
-    console.warn("Cache write error:", e);
-  }
-}
-
 // ============ TMDB API Functions ============
 
 interface TMDBMovie {
@@ -221,48 +127,9 @@ interface TMDBMovieDetails {
   };
 }
 
-// In-memory cache for TMDB lookups during request (persisted to KV for long-term)
+// In-memory cache for TMDB lookups during request (persisted to the cache
+// backend for long-term, see utils/cache.ts)
 const tmdbMemoryCache = new Map<string, TMDBMovieDetails | null>();
-
-// Get cached TMDB metadata from Deno KV (30-day TTL)
-async function getCachedTMDBMetadata(
-  title: string,
-): Promise<TMDBMovieDetails | null | undefined> {
-  const store = await getKv();
-  if (!store) return undefined; // undefined = no cache available
-
-  try {
-    const key = ["tmdb", title.toLowerCase()];
-    const result = await store.get<
-      { data: TMDBMovieDetails | null; timestamp: number }
-    >(key);
-    if (!result.value) return undefined;
-
-    const { data, timestamp } = result.value;
-    if (Date.now() - timestamp >= METADATA_CACHE_TTL_MS) {
-      return undefined; // expired
-    }
-    return data;
-  } catch {
-    return undefined;
-  }
-}
-
-// Store TMDB metadata in Deno KV
-async function setCachedTMDBMetadata(
-  title: string,
-  data: TMDBMovieDetails | null,
-): Promise<void> {
-  const store = await getKv();
-  if (!store) return;
-
-  try {
-    const key = ["tmdb", title.toLowerCase()];
-    await store.set(key, { data, timestamp: Date.now() });
-  } catch {
-    // ignore cache errors
-  }
-}
 
 // Search TMDB for a movie by title
 const searchTMDB = async (title: string): Promise<TMDBMovie | null> => {
@@ -332,8 +199,8 @@ const getMovieMetadata = async (title: string): Promise<
     return tmdbDetailsToMetadata(tmdbMemoryCache.get(cacheKey) || null);
   }
 
-  // Check persistent KV cache (30-day TTL)
-  const kvCached = await getCachedTMDBMetadata(title);
+  // Check persistent cache backend (30-day TTL)
+  const kvCached = await getCachedTMDBMetadata<TMDBMovieDetails>(title);
   if (kvCached !== undefined) {
     tmdbMemoryCache.set(cacheKey, kvCached);
     return tmdbDetailsToMetadata(kvCached);
@@ -1189,11 +1056,16 @@ const fetchCinemaGoudaShowtimes = async (
  * @param listPath - The Letterboxd list path (e.g., "105424/watchlist")
  * @returns The cached/fresh showtime data
  */
-export async function fetchAndCacheShowtimes(listPath: string) {
+export async function fetchAndCacheShowtimes(
+  listPath: string,
+  opts?: { force?: boolean },
+) {
   try {
-    // Check cache first
+    // Check cache first (the worker passes force to always refresh)
     const cacheKey = `showtimes:v24:${listPath}`;
-    const cached = await getCached<Record<string, unknown>>(cacheKey);
+    const cached = opts?.force
+      ? null
+      : await getCached<Record<string, unknown>>(cacheKey);
     if (cached) {
       console.log(`Cache HIT for ${listPath}`);
       return cached;
