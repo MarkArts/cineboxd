@@ -439,6 +439,17 @@ const normalizeTitle = (title: string): string => {
     .trim();
 };
 
+// Whole-word subphrase test (normalized titles only contain [a-z0-9 ])
+const containsAsWholeWords = (haystack: string, needle: string): boolean =>
+  needle.length > 0 && new RegExp(`(^|\\s)${needle}(\\s|$)`).test(haystack);
+
+// Two normalized titles match if they are equal, or if one is a
+// whole-word subphrase of the other. Raw substring matching is too
+// loose: watchlist film "Ran" must not match "Spider-Man: BRANd New Day",
+// but "Dune" should still match "Dune: Part Two".
+const titlesMatch = (a: string, b: string): boolean =>
+  a === b || containsAsWholeWords(a, b) || containsAsWholeWords(b, a);
+
 // Extract readable title from Pathé slug (e.g., "avatar-fire-and-ash-40584" -> "avatar fire and ash")
 const slugToTitle = (slug: string): string => {
   return slug
@@ -461,9 +472,7 @@ const matchPatheFilmsFromZone = (
     const normalizedSlugTitle = normalizeTitle(slugToTitle(show.slug));
 
     return normalizedWatchlist.some((watchlistTitle) =>
-      normalizedSlugTitle === watchlistTitle ||
-      normalizedSlugTitle.includes(watchlistTitle) ||
-      watchlistTitle.includes(normalizedSlugTitle)
+      titlesMatch(normalizedSlugTitle, watchlistTitle)
     );
   });
 };
@@ -1161,9 +1170,7 @@ const fetchCinemaGoudaShowtimes = async (
     const normalizedWatchlist = watchlistTitles.map(normalizeTitle);
     const matches = all.filter((show) => {
       const normalized = normalizeTitle(show.film.title);
-      return normalizedWatchlist.some((w) =>
-        normalized === w || normalized.includes(w) || w.includes(normalized)
-      );
+      return normalizedWatchlist.some((w) => titlesMatch(normalized, w));
     });
 
     console.log(
@@ -1185,7 +1192,7 @@ const fetchCinemaGoudaShowtimes = async (
 export async function fetchAndCacheShowtimes(listPath: string) {
   try {
     // Check cache first
-    const cacheKey = `showtimes:v23:${listPath}`;
+    const cacheKey = `showtimes:v24:${listPath}`;
     const cached = await getCached<Record<string, unknown>>(cacheKey);
     if (cached) {
       console.log(`Cache HIT for ${listPath}`);
@@ -1279,7 +1286,7 @@ export const handler: Handlers = {
       const resp = await fetchAndCacheShowtimes(listPath);
 
       const CACHE_SECONDS = 36 * 60 * 60; // 36 hours
-      const cacheKey = `showtimes:v23:${listPath}`;
+      const cacheKey = `showtimes:v24:${listPath}`;
       const wasCached = (await getCached<Record<string, unknown>>(cacheKey)) === resp;
 
       return new Response(JSON.stringify(resp), {
