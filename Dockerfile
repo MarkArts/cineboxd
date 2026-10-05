@@ -2,7 +2,7 @@
 
 # ---- Build stage: build the Fresh production bundle (_fresh/) ----
 # (Debian image: the `bin` image has no shell, so RUN doesn't work there)
-FROM denoland/deno:debian-1.46.3 AS build
+FROM denoland/deno:debian-2.2.15 AS build
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY . .
 RUN deno run -A dev.ts build
 
 # ---- Runtime stage: serve the production build ----
-FROM denoland/deno:debian-1.46.3
+FROM denoland/deno:debian-2.2.15
 
 WORKDIR /app
 
@@ -40,4 +40,7 @@ COPY --from=build /app/static ./static
 
 EXPOSE 8000
 
-CMD ["deno", "run", "-A", "main.ts"]
+# --unstable-otel activates Deno's built-in OpenTelemetry (spans for
+# Deno.serve and outbound fetch); it exports to OTEL_EXPORTER_OTLP_ENDPOINT
+# when set, and is a no-op without it.
+CMD ["deno", "run", "-A", "--unstable-otel", "main.ts"]
