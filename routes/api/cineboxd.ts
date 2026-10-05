@@ -600,115 +600,168 @@ const fetchPatheShowtimes = async (
 
 // ============ Letterboxd & Cineville Functions ============
 
-// Fetch any Letterboxd list (watchlist, custom list, etc.)
+// Decode common HTML entities in scraped titles (e.g. "Raging Bull &amp; Co")
+const decodeHtmlEntities = (s: string): string =>
+  s
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_, code: string) =>
+      String.fromCodePoint(parseInt(code, 16))
+    )
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+// Fetch any Letterboxd list (watchlist, custom list, etc.) by scraping
+// letterboxd.com directly (the old letterboxd-list-radarr proxy is dead).
 // listPath examples:
 //   "username/watchlist" - user's watchlist
 //   "username/list/my-favorites" - user's custom list
 //   "dave/list/official-top-250-narrative-feature-films" - IMDB top 250
-// Includes retry logic for 503 errors (service waking up from cold start)
+// Includes retry logic for transient errors and paginates through all pages
 const getLetterboxdList = async (
   listPath: string,
   maxRetries = 3,
   delayMs = 2000,
-): Promise<unknown> => {
-  let lastError: Error | null = null;
+): Promise<{ title: string }[]> => {
+  const titles: string[] = [];
+  let page = 1;
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(
-        `https://letterboxd-list-radarr.onrender.com/${listPath}/`,
-      );
+  while (true) {
+    const url = page === 1
+      ? `https://letterboxd.com/${listPath}/`
+      : `https://letterboxd.com/${listPath}/page/${page}/`;
 
-      if (response.ok) {
-        return response.json();
-      }
+    let html: string | null = null;
+    let lastError: Error | null = null;
 
-      // Retry on 503 (service unavailable / cold start)
-      if (response.status === 503 && attempt < maxRetries) {
-        console.log(
-          `Letterboxd service returned 503, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        continue;
-      }
+    for (let attempt = 1; attempt <= maxRetries && html === null; attempt++) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          },
+        });
 
-      // Other errors or final 503 attempt
-      if (response.status === 503) {
-        throw new Error(
-          "The Letterboxd service is temporarily unavailable. Please try again in a moment.",
-        );
-      } else if (response.status === 404) {
-        throw new Error(
-          `List not found: "${listPath}". Please check the URL or username.`,
-        );
-      } else {
+        if (response.ok) {
+          html = await response.text();
+          break;
+        }
+
+        if (response.status === 404) {
+          if (page === 1) {
+            throw new Error(
+              `List not found: "${listPath}". Please check the URL or username.`,
+            );
+          }
+          break; // past the last page, stop paginating
+        }
+
+        if (
+          (response.status === 503 || response.status === 429) &&
+          attempt < maxRetries
+        ) {
+          lastError = new Error(
+            `Letterboxd returned ${response.status}, retrying`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+
         throw new Error(
           `Failed to fetch list "${listPath}" (HTTP ${response.status})`,
         );
-      }
-    } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e));
+      } catch (e) {
+        // "List not found" errors should not be retried
+        if (e instanceof Error && e.message.includes("not found")) throw e;
 
-      // Network errors - retry
-      if (
-        attempt < maxRetries &&
-        !(e instanceof Error && e.message.includes("not found"))
-      ) {
-        console.log(
-          `Letterboxd fetch failed, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries}):`,
-          lastError.message,
-        );
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        continue;
+        lastError = e instanceof Error ? e : new Error(String(e));
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
       }
-
-      throw lastError;
     }
+
+    if (html === null) {
+      if (page > 1 && titles.length > 0) break; // tolerate a failed later page
+      throw lastError || new Error(`Failed to fetch list "${listPath}"`);
+    }
+
+    // Titles live in the alt attribute of each film poster image, e.g.
+    // <div class="poster film-poster"> <img ... class="image" alt="Title"/>
+    const found = [
+      ...html.matchAll(
+        /<img(?=[^>]*class="image")[^>]*alt="([^"]+)"/g,
+      ),
+    ].map((m) => decodeHtmlEntities(m[1]));
+
+    if (found.length === 0) break;
+    titles.push(...found);
+
+    page++;
+    // Be polite to letterboxd.com while paginating
+    await new Promise((resolve) => setTimeout(resolve, 400));
   }
 
-  throw lastError || new Error("Failed to fetch Letterboxd list");
+  console.log(`Letterboxd: scraped ${titles.length} films from "${listPath}"`);
+  return titles.map((title) => ({ title }));
 };
 
-type ProductionIds = {
-  data: { films: { data: { id: string; title?: string }[] } };
-};
+// Cineville production (film) from the CultureKit REST API
+interface CultureKitProduction {
+  id: string;
+  slug: string;
+  title: string;
+  attributes?: {
+    duration?: number;
+    directors?: string[];
+  };
+  assets?: { poster?: { url?: string } };
+}
 
-// Get Cineville production IDs from film titles
-const getCinevilleProductionIds = async (
+// Get Cineville film productions matching watchlist titles (exact title match)
+// via the CultureKit REST API (cineville.nl's old GraphQL API is gone)
+const getCinevilleProductions = async (
   titles: string[],
-): Promise<ProductionIds> => {
-  const titleList = titles
-    .map((t) => `"${t.replace(/"/g, '\\"')}"`)
-    .join(",");
-
-  const query = JSON.stringify({
-    query: `{
-  films(page: {limit: 999} filters:  {
-     title:  {
-         in: [${titleList}]
-     }
-  }) {
-    data {
-      title
-      id
-    }
-  }
-}`,
-  });
-
-  const data = await fetch("https://cineville.nl/api/graphql", {
-    method: "POST",
-    body: query,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-    },
-  });
-
-  if (!data.ok) {
-    throw new Error(`Cineville films query failed: ${await data.text()}`);
+): Promise<CultureKitProduction[]> => {
+  const BATCH_SIZE = 50; // page limit on productions/search is capped at 100
+  const batches: string[][] = [];
+  for (let i = 0; i < titles.length; i += BATCH_SIZE) {
+    batches.push(titles.slice(i, i + BATCH_SIZE));
   }
 
-  return data.json();
+  const results = await Promise.all(
+    batches.map(async (batch) => {
+      const response = await fetch(
+        "https://api.cineville.nl/productions/search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: { in: batch },
+            productionTypeId: { eq: "film" },
+            page: { limit: 100 },
+            isHidden: { eq: false },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Cineville productions query failed: ${await response.text()}`,
+        );
+      }
+
+      const data = await response.json();
+      return (data?._embedded?.productions ??
+        []) as CultureKitProduction[];
+    }),
+  );
+
+  return results.flat();
 };
 
 // Fetch Cineville showtimes for given watchlist titles
@@ -716,92 +769,100 @@ const fetchCinevilleShowtimes = async (
   watchlistTitles: string[],
 ): Promise<Show[]> => {
   try {
-    const productionIds = await getCinevilleProductionIds(watchlistTitles);
+    const productions = await getCinevilleProductions(watchlistTitles);
 
-    if (!productionIds.data?.films?.data?.length) {
+    if (!productions.length) {
       console.log("Cineville: no matching films found");
       return [];
     }
 
-    console.log(`Cineville: found ${productionIds.data.films.data.length} matching production IDs`);
+    console.log(`Cineville: found ${productions.length} matching productions`);
 
-    // Batch production IDs to get better coverage per film
-    // With 1000 limit per query, smaller batches ensure each film gets more showtimes
-    const BATCH_SIZE = 4; // 4 films per query = ~250 showtimes per film (5x increase from 20 films/~50 showtimes)
-    const allShows: any[] = [];
-    const productionIdBatches: string[][] = [];
+    const now = new Date().toISOString();
+    const BATCH_SIZE = 50; // events/search page limit is capped at 100
+    const shows: Show[] = [];
 
-    for (let i = 0; i < productionIds.data.films.data.length; i += BATCH_SIZE) {
-      const batch = productionIds.data.films.data.slice(i, i + BATCH_SIZE);
-      productionIdBatches.push(batch.map((x) => `"${x.id}"`));
+    for (let i = 0; i < productions.length; i += BATCH_SIZE) {
+      const batch = productions.slice(i, i + BATCH_SIZE).map((p) => p.id);
+      let after: string | undefined;
+
+      // Paginate through all upcoming events for this batch of productions
+      for (let page = 0; page < 20; page++) {
+        const response = await fetch("https://api.cineville.nl/events/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productionId: { in: batch },
+            startDate: { gte: now },
+            isHidden: { eq: false },
+            embed: { production: true, venue: true },
+            sort: { startDate: "asc" },
+            page: { limit: 100, ...(after ? { after } : {}) },
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Cineville events query failed: ${await response.text()}`,
+          );
+        }
+
+        const result = await response.json();
+        const events: {
+          id: string;
+          startDate: string;
+          endDate: string;
+          ticketingUrl: string;
+          attributes?: { subtitles?: string[] };
+          _embedded?: {
+            production?: CultureKitProduction;
+            venue?: {
+              name: string;
+              address?: { city?: string };
+            };
+          };
+        }[] = result?._embedded?.events || [];
+
+        for (const event of events) {
+          const production = event._embedded?.production;
+          const venue = event._embedded?.venue;
+          if (!production || !venue) continue;
+
+          shows.push({
+            id: event.id,
+            startDate: event.startDate,
+            endDate: event.endDate,
+            ticketingUrl: event.ticketingUrl,
+            film: {
+              title: production.title,
+              slug: production.slug,
+              poster: production.assets?.poster?.url
+                ? { url: production.assets.poster.url }
+                : undefined,
+              duration: production.attributes?.duration ?? 0,
+              directors: production.attributes?.directors || [],
+            },
+            theater: {
+              name: venue.name,
+              address: { city: venue.address?.city ?? "" },
+            },
+            chain: "cineville",
+            subtitlesList: event.attributes?.subtitles,
+          });
+        }
+
+        const nextHref = result?._links?.next?.href as string | undefined;
+        const cursor = nextHref
+          ? new URL(nextHref, "https://api.cineville.nl").searchParams.get(
+            "page[after]",
+          )
+          : null;
+        if (!cursor) break;
+        after = cursor;
+      }
     }
 
-    console.log(`Cineville: querying ${productionIdBatches.length} batches of ${BATCH_SIZE} films each`);
-
-    const currentDate = new Date().toISOString();
-
-    // Fetch each batch in parallel
-    const batchPromises = productionIdBatches.map(async (productionIdList) => {
-      const showtimesQuery = JSON.stringify({
-        query: `{
-  showtimes(page: {limit: 1000}, filters:  {
-     productionId:  {
-        in: [${productionIdList.join(",")}]
-     }
-      startDate:  {
-        gt: "${currentDate}"
-     }
-  }) {
-    data {
-      id,
-      startDate
-      endDate
-      subtitlesList
-      languageVersion
-      languageVersionAbbreviation
-      film {
-        title
-        slug
-        poster {
-          url
-        }
-        duration
-        directors
-      }
-      ticketingUrl
-      theater {
-        name
-        address {
-          city
-        }
-      }
-    }
-  }
-}`,
-      });
-
-      const response = await fetch("https://cineville.nl/api/graphql", {
-        method: "POST",
-        body: showtimesQuery,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Cineville showtimes query failed: ${await response.text()}`,
-        );
-      }
-
-      const result = await response.json();
-      return result?.data?.showtimes?.data || [];
-    });
-
-    const batchResults = await Promise.all(batchPromises);
-    const shows = batchResults.flat();
-
-    console.log(`Cineville: fetched ${shows.length} showtimes across ${productionIdBatches.length} batches`);
+    console.log(`Cineville: fetched ${shows.length} showtimes`);
 
     // Find films missing poster or directors for TMDB enrichment
     const filmsNeedingEnrichment = new Map<
@@ -876,7 +937,7 @@ const fetchCinevilleShowtimes = async (
 export async function fetchAndCacheShowtimes(listPath: string) {
   try {
     // Check cache first
-    const cacheKey = `showtimes:v21:${listPath}`;
+    const cacheKey = `showtimes:v22:${listPath}`;
     const cached = await getCached<Record<string, unknown>>(cacheKey);
     if (cached) {
       console.log(`Cache HIT for ${listPath}`);
@@ -889,7 +950,10 @@ export async function fetchAndCacheShowtimes(listPath: string) {
     const listData = (await getLetterboxdList(listPath)) as {
       title: string;
     }[];
-    const filmTitles = listData.map((x) => x.title);
+    const filmTitles = listData
+      .map((x) => x.title)
+      // Defensive: never let malformed upstream data break the parsers again
+      .filter((t): t is string => typeof t === "string" && t.length > 0);
 
     console.log(
       `Fetching showtimes for ${filmTitles.length} films from "${listPath}"`,
@@ -960,7 +1024,7 @@ export const handler: Handlers = {
       const resp = await fetchAndCacheShowtimes(listPath);
 
       const CACHE_SECONDS = 36 * 60 * 60; // 36 hours
-      const cacheKey = `showtimes:v21:${listPath}`;
+      const cacheKey = `showtimes:v22:${listPath}`;
       const wasCached = (await getCached<Record<string, unknown>>(cacheKey)) === resp;
 
       return new Response(JSON.stringify(resp), {
