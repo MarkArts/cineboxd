@@ -30,3 +30,17 @@ To stop and remove the container:
 ```bash
 docker rm -f cineboxd
 ```
+
+## CI/CD
+
+A [GitHub Actions workflow](.github/workflows/docker.yml) builds the Docker image on every PR (build-only) and on every push to `main` builds, pushes, and smoke-tests the image to GitHub Container Registry:
+
+- `ghcr.io/markarts/cineboxd:latest`
+- `ghcr.io/markarts/cineboxd:sha-<commit>`
+
+Pull the published image with:
+
+```bash
+docker pull ghcr.io/markarts/cineboxd:latest
+docker run -d --name cineboxd -p 8000:8000 --env-file .env ghcr.io/markarts/cineboxd:latest
+```
