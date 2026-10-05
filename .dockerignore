@@ -1,0 +1,26 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies / caches
+node_modules
+.next
+
+# Fresh build output (rebuilt inside the container)
+_fresh
+
+# Env files (pass secrets via `docker run --env-file .env`)
+.env
+
+# Screenshots / docs not needed in the image
+desktop-screenshot.png
+mobile-screenshot.png
+CLAUDE.md
+README.md
+screenshot.js
+
+# Misc
+.claude
+data
+*.tsbuildinfo
+.DS_Store
