@@ -35,7 +35,6 @@ COPY --from=build /app/main.ts /app/fresh.config.ts /app/fresh.gen.ts ./
 COPY --from=build /app/_fresh ./_fresh
 COPY --from=build /app/routes ./routes
 COPY --from=build /app/islands ./islands
-COPY --from=build /app/components ./components
 COPY --from=build /app/utils ./utils
 COPY --from=build /app/static ./static
 
