@@ -11,7 +11,7 @@ their watchlist in Dutch theaters (Cineville + Pathé + Cinema Gouda).
 - Fresh 1.6 (Deno web framework)
 - Preact (React-compatible UI)
 - TypeScript
-- Deno KV for caching
+- Valkey cache (Redis-compatible, via ioredis), with Deno KV as the local fallback
 - Inline styles (no CSS framework)
 
 ## Development Commands
@@ -62,7 +62,7 @@ selected date state.
 - URL state synchronization
 - Click-outside to close filter dropdowns
 - TMDB integration for poster/director enrichment
-- Deno KV caching (24h showtimes, 30d metadata)
+- Valkey caching (36h showtimes, 30d metadata), Deno KV when no Valkey is configured
 
 ## API Endpoint
 
