@@ -88,3 +88,5 @@ Pull the published image with:
 docker pull ghcr.io/markarts/cineboxd:latest
 docker run -d --name cineboxd -p 8000:8000 --env-file .env ghcr.io/markarts/cineboxd:latest
 ```
+
+Preview deploys run on AtHome for every pull request.
