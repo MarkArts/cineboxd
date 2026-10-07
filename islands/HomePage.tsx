@@ -73,7 +73,7 @@ const EXAMPLE_LISTS = [
   {
     title: "Top 250 Most Popular",
     subtitle: "Next week",
-    path: "jack/list/official-top-250-films-with-the-most-fans",
+    path: "official/list/top-250-films-with-the-most-fans",
     emoji: "❤️",
     getFilters: getNextWeekRange,
   },

@@ -12,7 +12,7 @@ export const WATCHLIST_PATHS = [
   "105424/watchlist",
   "filmjournl/list/sight-sound-2025",
   "idiah/list/sight-and-sound-2024",
-  "jack/list/official-top-250-films-with-the-most-fans",
+  "official/list/top-250-films-with-the-most-fans",
   "benvsthemovies/list/the-criterion-challenge-2026",
   "fcbarcelona/list/movies-everyone-should-watch-at-least-once",
   "Snautsie/watchlist",
