@@ -256,19 +256,38 @@ interface PatheShowtime {
 }
 
 // Fetch all films showing in Pathé from zone API
+// Pathé caches: the zone list (films showing) is the same for every watchlist,
+// and per film/cinema/date showtimes are mostly-empty lookups shared across
+// lists. Caching both - including EMPTY results, but never failures - cuts
+// the per-refresh fan-out (30 cinemas x 15 dates per film) to almost zero
+// after the first sweep, and keeps us far away from Pathé's rate limits.
+const PATHE_ZONE_CACHE_TTL = 12 * 60 * 60; // 12h
+const PATHE_SHOWTIMES_CACHE_TTL = 24 * 60 * 60; // 24h for real showtimes
+const PATHE_SHOWTIMES_EMPTY_TTL = 6 * 60 * 60; // 6h for "not showing here"
+
 const fetchPatheZone = async (
   zone: string = "amsterdam",
 ): Promise<PatheZoneShow[]> => {
+  const cacheKey = `pathe:zone:v1:${zone}`;
+  const cached = await getCached<PatheZoneShow[]>(cacheKey);
+  if (cached !== null) {
+    console.log(`Pathé: zone ${zone} cache HIT (${cached.length} films)`);
+    return cached;
+  }
+
   try {
     const response = await fetch(`${PATHE_BASE_URL}/zone/${zone}`, {
       headers: { "User-Agent": PATHE_USER_AGENT },
     });
     if (!response.ok) {
+      // Do not cache failures: a rate-limited response must not be frozen
       console.warn(`Failed to fetch Pathé zone ${zone}:`, response.status);
       return [];
     }
     const data = await response.json();
-    return data.shows || [];
+    const shows = data.shows || [];
+    await setCache(cacheKey, shows, PATHE_ZONE_CACHE_TTL);
+    return shows;
   } catch (e) {
     console.warn(`Failed to fetch Pathé zone ${zone}:`, e);
     return [];
@@ -281,15 +300,27 @@ const fetchPatheShowtimesForCinema = async (
   cinemaSlug: string,
   date: string,
 ): Promise<PatheShowtime[]> => {
+  const cacheKey = `pathe:showtimes:v1:${filmSlug}:${cinemaSlug}:${date}`;
+  const cached = await getCached<PatheShowtime[]>(cacheKey);
+  if (cached !== null) return cached;
+
   try {
     const url =
       `${PATHE_BASE_URL}/show/${filmSlug}/showtimes/${cinemaSlug}/${date}?language=nl`;
     const response = await fetch(url, {
       headers: { "User-Agent": PATHE_USER_AGENT },
     });
-    if (!response.ok) return [];
+    if (!response.ok) return []; // never cache failures
     const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    const showtimes = Array.isArray(data) ? data : [];
+    await setCache(
+      cacheKey,
+      showtimes,
+      showtimes.length > 0
+        ? PATHE_SHOWTIMES_CACHE_TTL
+        : PATHE_SHOWTIMES_EMPTY_TTL,
+    );
+    return showtimes;
   } catch {
     return [];
   }
