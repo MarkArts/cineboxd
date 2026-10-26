@@ -2,8 +2,8 @@
 import { Handlers } from "$fresh/server.ts";
 import {
   getCached,
-  setCache,
   getCachedTMDBMetadata,
+  setCache,
   setCachedTMDBMetadata,
 } from "../../utils/cache.ts";
 
@@ -510,9 +510,13 @@ const fetchPatheShowtimes = async (
 // Decode common HTML entities in scraped titles (e.g. "Raging Bull &amp; Co")
 const decodeHtmlEntities = (s: string): string =>
   s
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_, code: string) =>
-      String.fromCodePoint(parseInt(code, 16))
+    .replace(
+      /&#(\d+);/g,
+      (_, code: string) => String.fromCodePoint(Number(code)),
+    )
+    .replace(
+      /&#[xX]([0-9a-fA-F]+);/g,
+      (_, code: string) => String.fromCodePoint(parseInt(code, 16)),
     )
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
@@ -918,7 +922,10 @@ const parseGoudaFilmPage = async (slug: string): Promise<Show[] | null> => {
     },
   });
   if (!response.ok) {
-    console.warn(`Cinema Gouda: failed to fetch film ${slug}:`, response.status);
+    console.warn(
+      `Cinema Gouda: failed to fetch film ${slug}:`,
+      response.status,
+    );
     return null;
   }
   const html = await response.text();
@@ -1031,10 +1038,14 @@ const fetchCinemaGoudaShows = async (): Promise<Show[]> => {
   }
   const html = await response.text();
 
-  const slugs = [...new Set(
-    [...html.matchAll(/href="https:\/\/www\.cinemagouda\.nl\/film\/([a-z0-9-]+)"/g)]
-      .map((m) => m[1]),
-  )];
+  const slugs = [
+    ...new Set(
+      [...html.matchAll(
+        /href="https:\/\/www\.cinemagouda\.nl\/film\/([a-z0-9-]+)"/g,
+      )]
+        .map((m) => m[1]),
+    ),
+  ];
 
   console.log(`Cinema Gouda: scraping ${slugs.length} film pages`);
 
@@ -1085,12 +1096,12 @@ const fetchCinemaGoudaShowtimes = async (
  * Fetch and cache showtimes for a given Letterboxd list
  * This is the core logic extracted from the HTTP handler for reuse in cron jobs
  * @param listPath - The Letterboxd list path (e.g., "105424/watchlist")
- * @returns The cached/fresh showtime data
+ * @returns The cached/fresh showtime data and whether it came from cache
  */
 export async function fetchAndCacheShowtimes(
   listPath: string,
   opts?: { force?: boolean },
-) {
+): Promise<{ resp: Record<string, unknown>; fromCache: boolean }> {
   try {
     // Check cache first (the worker passes force to always refresh)
     const cacheKey = `showtimes:v24:${listPath}`;
@@ -1099,7 +1110,7 @@ export async function fetchAndCacheShowtimes(
       : await getCached<Record<string, unknown>>(cacheKey);
     if (cached) {
       console.log(`Cache HIT for ${listPath}`);
-      return cached;
+      return { resp: cached, fromCache: true };
     }
 
     console.log(`Cache MISS for ${listPath}, fetching fresh data...`);
@@ -1118,11 +1129,12 @@ export async function fetchAndCacheShowtimes(
     );
 
     // Fetch from all sources in parallel
-    const [cinevilleResult, patheResult, goudaResult] = await Promise.allSettled([
-      fetchCinevilleShowtimes(filmTitles),
-      fetchPatheShowtimes(filmTitles),
-      fetchCinemaGoudaShowtimes(filmTitles),
-    ]);
+    const [cinevilleResult, patheResult, goudaResult] = await Promise
+      .allSettled([
+        fetchCinevilleShowtimes(filmTitles),
+        fetchPatheShowtimes(filmTitles),
+        fetchCinemaGoudaShowtimes(filmTitles),
+      ]);
 
     // Extract results
     const cinevilleShows = cinevilleResult.status === "fulfilled"
@@ -1159,7 +1171,7 @@ export async function fetchAndCacheShowtimes(
     // Store in cache
     await setCache(cacheKey, resp);
 
-    return resp;
+    return { resp, fromCache: false };
   } catch (error) {
     console.error(`Error fetching showtimes for ${listPath}:`, error);
     throw error;
@@ -1186,11 +1198,9 @@ export const handler: Handlers = {
       }
 
       // Use the extracted function
-      const resp = await fetchAndCacheShowtimes(listPath);
+      const { resp, fromCache } = await fetchAndCacheShowtimes(listPath);
 
       const CACHE_SECONDS = 36 * 60 * 60; // 36 hours
-      const cacheKey = `showtimes:v24:${listPath}`;
-      const wasCached = (await getCached<Record<string, unknown>>(cacheKey)) === resp;
 
       return new Response(JSON.stringify(resp), {
         status: 200,
@@ -1200,7 +1210,7 @@ export const handler: Handlers = {
             `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=3600`,
           "Surrogate-Control": `max-age=${CACHE_SECONDS}`,
           "Vary": "Accept-Encoding",
-          "X-Cache": wasCached ? "HIT" : "MISS",
+          "X-Cache": fromCache ? "HIT" : "MISS",
         },
       });
     } catch (error) {
