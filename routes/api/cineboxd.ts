@@ -341,12 +341,39 @@ const normalizeTitle = (title: string): string => {
 const containsAsWholeWords = (haystack: string, needle: string): boolean =>
   needle.length > 0 && new RegExp(`(^|\\s)${needle}(\\s|$)`).test(haystack);
 
-// Two normalized titles match if they are equal, or if one is a
-// whole-word subphrase of the other. Raw substring matching is too
-// loose: watchlist film "Ran" must not match "Spider-Man: BRANd New Day",
-// but "Dune" should still match "Dune: Part Two".
-const titlesMatch = (a: string, b: string): boolean =>
-  a === b || containsAsWholeWords(a, b) || containsAsWholeWords(b, a);
+// Number of words in a normalized title ([a-z0-9 ] only, already trimmed)
+const wordCount = (s: string): number => s ? s.split(" ").length : 0;
+
+// A one-word title may only match a longer title when the film clearly
+// continues a franchise: the word is directly followed by "part", a roman
+// numeral, or an arabic number ("Dune" -> "Dune: Part Two"). Without this
+// guard, common one-word titles become absurdly ambiguous: "Time" would
+// match "Time and Water", "Play" would match "I Play Rocky", "Carol"
+// would match "A Christmas Carol".
+const isFranchiseContinuation = (shorter: string, longer: string): boolean => {
+  if (!longer.startsWith(shorter + " ")) return false;
+  const nextWord = longer.slice(shorter.length + 1).split(" ")[0];
+  if (nextWord === "part") return true;
+  if (/^\d+$/.test(nextWord)) return true;
+  return /^(ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii)$/.test(nextWord);
+};
+
+// Two normalized titles match if they are equal, or - only when both have
+// at least two words - if one is a whole-word subphrase of the other. Raw
+// substring matching is too loose (watchlist film "Ran" must not match
+// "Spider-Man: BRANd New Day"), and whole-word subphrase matching is too
+// loose for one-word titles ("Time" must not match "Time and Water"), so
+// one-word titles only match longer titles via franchise continuations.
+const titlesMatch = (a: string, b: string): boolean => {
+  if (a === b) return true;
+  const minWords = Math.min(wordCount(a), wordCount(b));
+  if (minWords >= 2) {
+    return containsAsWholeWords(a, b) || containsAsWholeWords(b, a);
+  }
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  return isFranchiseContinuation(shorter, longer);
+};
 
 // Extract readable title from Pathé slug (e.g., "avatar-fire-and-ash-40584" -> "avatar fire and ash")
 const slugToTitle = (slug: string): string => {
@@ -1104,7 +1131,7 @@ export async function fetchAndCacheShowtimes(
 ): Promise<{ resp: Record<string, unknown>; fromCache: boolean }> {
   try {
     // Check cache first (the worker passes force to always refresh)
-    const cacheKey = `showtimes:v24:${listPath}`;
+    const cacheKey = `showtimes:v25:${listPath}`;
     const cached = opts?.force
       ? null
       : await getCached<Record<string, unknown>>(cacheKey);
