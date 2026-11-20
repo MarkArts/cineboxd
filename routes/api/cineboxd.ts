@@ -910,7 +910,6 @@ const amsterdamWallClockToUtcISO = (
 
   return new Date(utcMs).toISOString();
 };
-
 const GOUDA_MONTHS = [
   "januari",
   "februari",
@@ -925,6 +924,18 @@ const GOUDA_MONTHS = [
   "november",
   "december",
 ];
+
+// Canonicalize a Cinema Gouda title so multiple program entries for the
+// same film merge into one card. Gouda lists the same film under several
+// entries with different tickets/audiences (e.g. "Cine+: Wild Horse Nine"
+// and "Wild Horse Nine (16+)"): strip the event-series prefix and trailing
+// age-rating suffixes so both become "Wild Horse Nine".
+const canonicalizeGoudaTitle = (title: string): string =>
+  title
+    .replace(/^\s*Cine\+?[:–\-]?\s*/i, "")
+    .replace(/\s*\(\d{1,2}\+?\)\s*$/i, "")
+    .replace(/\s+\d{1,2}\+?\s*$/i, "")
+    .trim();
 
 // Resolve day + Dutch month to a full date (year is not shown on the
 // site, so infer it: a date more than a week in the past must be next year)
@@ -958,7 +969,9 @@ const parseGoudaFilmPage = async (slug: string): Promise<Show[] | null> => {
   const html = await response.text();
 
   const titleMatch = html.match(/<h1 class="titel">([^<]+)<\/h1>/);
-  const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : "";
+  const title = titleMatch
+    ? canonicalizeGoudaTitle(decodeHtmlEntities(titleMatch[1].trim()))
+    : "";
   if (!title) return null;
 
   const posterMatch = html.match(
@@ -1045,7 +1058,7 @@ const parseGoudaFilmPage = async (slug: string): Promise<Show[] | null> => {
 // Fetch all current Cinema Gouda showtimes (the whole program is cached in
 // KV so multiple watchlist fetches share one scrape)
 const fetchCinemaGoudaShows = async (): Promise<Show[]> => {
-  const cacheKey = "cinemagouda:shows:v1";
+  const cacheKey = "cinemagouda:shows:v2";
   const cached = await getCached<Show[]>(cacheKey);
   if (cached) {
     console.log(`Cinema Gouda: cache HIT (${cached.length} showtimes)`);
@@ -1090,9 +1103,27 @@ const fetchCinemaGoudaShows = async (): Promise<Show[]> => {
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
-  console.log(`Cinema Gouda: scraped ${shows.length} showtimes total`);
-  await setCache(cacheKey, shows);
-  return shows;
+  // Merge duplicate program entries for the same film: Cinema Gouda can
+  // list the same screening under several entries ("Cine+" and "(16+)"
+  // versions of the same film). After title canonicalization these share a
+  // film title, so collapse shows with the same film+start time.
+  const seen = new Set<string>();
+  const mergedShows: Show[] = [];
+  for (const show of shows) {
+    const key = `${show.film.title}|${show.startDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    mergedShows.push(show);
+  }
+  if (mergedShows.length !== shows.length) {
+    console.log(
+      `Cinema Gouda: merged ${shows.length - mergedShows.length} duplicate program entries`,
+    );
+  }
+
+  console.log(`Cinema Gouda: scraped ${mergedShows.length} showtimes total`);
+  await setCache(cacheKey, mergedShows);
+  return mergedShows;
 };
 
 // Match Cinema Gouda showtimes against watchlist titles
