@@ -1162,7 +1162,7 @@ export async function fetchAndCacheShowtimes(
 ): Promise<{ resp: Record<string, unknown>; fromCache: boolean }> {
   try {
     // Check cache first (the worker passes force to always refresh)
-    const cacheKey = `showtimes:v25:${listPath}`;
+    const cacheKey = `showtimes:v26:${listPath}`;
     const cached = opts?.force
       ? null
       : await getCached<Record<string, unknown>>(cacheKey);
